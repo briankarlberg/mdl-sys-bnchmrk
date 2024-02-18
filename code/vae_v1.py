@@ -142,13 +142,19 @@ if __name__ == "__main__":
     parser.add_argument('--output_dir', '-o', type=Path, required=True,
                         help="The output dir where the results should be stored. If it does not exist, it will be created.")
     parser.add_argument("--verbose", "-v", action="store_true", help="Run the script in debug mode")
+    parser.add_argument("--epochs", "-e", action="store", help="The amount of epochs to train the model")
+    parser.add_argument("--batch_size", "-b", action="store", help="The batch size to use for training")
+    parser.add_argument("--latent_space", "-lts", action="store", help="The latent space dimension to use for the VAE")
     args = parser.parse_args()
 
     data = pd.read_csv(args.data, sep="\t")
     # print([col for col in list(data.columns) if "entr" not in col])
     # input()
-    output_dir = args.output_dir
-    verbose = args.verbose
+    output_dir: Path = args.output_dir
+    verbose: bool = args.verbose
+    epochs: int = args.epochs
+    batch_size: int = args.batch_size
+    z_dim: int = args.latent_space
 
     if not output_dir.exists():
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -348,16 +354,14 @@ if __name__ == "__main__":
 
     # Save the reconstructed data
     reconstructed_data = pd.DataFrame(x_test_decoded)
-    reconstructed_data["System"] = system_labels
-    reconstructed_data["Cancer"] = cancer_labels
-    reconstructed_data["improve_sample_id"] = sample_id
+    reconstructed_data["System"] = system_labels.reset_index(drop=True)
+    reconstructed_data["Cancer"] = cancer_labels.reset_index(drop=True)
     reconstructed_data.to_csv(Path(output_dir, "reconstructed_data.tsv"), index=False)
 
     # Save the latent space
     latent_space = pd.DataFrame(x_test_encoded)
-    latent_space["Cancer"] = cancer_labels
-    latent_space["System"] = system_labels
-    latent_space["improve_sample_id"] = sample_id
+    latent_space["Cancer"] = cancer_labels.reset_index(drop=True)
+    latent_space["System"] = system_labels.reset_index(drop=True)
     latent_space.to_csv(Path(output_dir, "latent_space.tsv"), index=False)
 
     # predict cancer and system labels
@@ -373,3 +377,13 @@ if __name__ == "__main__":
     system_predictions = pd.DataFrame(system_predictions)
     system_predictions["System"] = test_system_labels.reset_index(drop=True)
     system_predictions.to_csv(Path(output_dir, "system_predictions.tsv"), index=False)
+
+    hyperparams = []
+    hyperparams.append({
+        "Epochs": epochs,
+        "Batch Size": batch_size,
+        "Latent Space": z_dim,
+        "Epsilon": epsilon,
+    })
+    hyperparams = pd.DataFrame(hyperparams)
+    hyperparams.to_csv(Path(output_dir, "hyperparams.tsv"), index=False)
