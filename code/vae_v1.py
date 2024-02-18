@@ -142,9 +142,10 @@ if __name__ == "__main__":
     parser.add_argument('--output_dir', '-o', type=Path, required=True,
                         help="The output dir where the results should be stored. If it does not exist, it will be created.")
     parser.add_argument("--verbose", "-v", action="store_true", help="Run the script in debug mode")
-    parser.add_argument("--epochs", "-e", action="store", help="The amount of epochs to train the model")
-    parser.add_argument("--batch_size", "-b", action="store", help="The batch size to use for training")
-    parser.add_argument("--latent_space", "-lts", action="store", help="The latent space dimension to use for the VAE")
+    parser.add_argument("--epochs", "-e", action="store", type=int, help="The amount of epochs to train the model")
+    parser.add_argument("--batch_size", "-b", action="store", type=int, help="The batch size to use for training")
+    parser.add_argument("--latent_space", "-lts", action="store", type=int,
+                        help="The latent space dimension to use for the VAE")
     args = parser.parse_args()
 
     data = pd.read_csv(args.data, sep="\t")
