@@ -17,5 +17,6 @@ epochs=$1
 batch_size=$2
 latent_space=$3
 data=$4
+output_dir=$5
 
-python3 ./vae_v1.py --epochs "${epochs}" --batch_size "${batch_size}" --latent_space "${latent_space}" --data "${data}"
+python3 ./vae_v1.py --epochs "${epochs}" --batch_size "${batch_size}" --latent_space "${latent_space}" --data "${data}" --output_dir "${output_dir}"
