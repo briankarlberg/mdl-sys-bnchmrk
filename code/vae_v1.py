@@ -380,6 +380,7 @@ if __name__ == "__main__":
 
     hyperparams = []
     hyperparams.append({
+        "File Name": Path(args.data).stem,
         "Epochs": epochs,
         "Batch Size": batch_size,
         "Latent Space": z_dim,
