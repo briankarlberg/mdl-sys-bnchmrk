@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --nodes=1
-#SBATCH --job-name=vae_v1
+#SBATCH --job-name=vae_gpu
 #SBATCH --time=9-00:00:00
 #SBATCH --partition=exacloud
 #SBATCH --qos=long_jobs
@@ -19,4 +19,4 @@ latent_space=$3
 data=$4
 output_dir=$5
 
-python3 ./vae_v1.py --epochs "${epochs}" --batch_size "${batch_size}" --latent_space "${latent_space}" --data "${data}" --output_dir "${output_dir}"
+python3 ./vae.py --epochs "${epochs}" --batch_size "${batch_size}" --latent_space "${latent_space}" --data "${data}" --output_dir "${output_dir}"

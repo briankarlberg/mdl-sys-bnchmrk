@@ -142,12 +142,15 @@ if __name__ == "__main__":
     parser.add_argument('--output_dir', '-o', type=Path, required=True,
                         help="The output dir where the results should be stored. If it does not exist, it will be created.")
     parser.add_argument("--verbose", "-v", action="store_true", help="Run the script in debug mode")
-    parser.add_argument("--epochs", "-e", action="store", type=int, help="The amount of epochs to train the model")
-    parser.add_argument("--batch_size", "-b", action="store", type=int, help="The batch size to use for training")
-    parser.add_argument("--latent_space", "-lts", action="store", type=int,
+    parser.add_argument("--epochs", "-e", action="store", type=int, default=50,
+                        help="The amount of epochs to train the model")
+    parser.add_argument("--batch_size", "-b", action="store", type=int, default=64,
+                        help="The batch size to use for training")
+    parser.add_argument("--latent_space", "-lts", action="store", type=int, default=1500,
                         help="The latent space dimension to use for the VAE")
     args = parser.parse_args()
 
+    data_folder: Path = Path(args.data)
     data = pd.read_csv(args.data, sep="\t")
     # print([col for col in list(data.columns) if "entr" not in col])
     # input()
@@ -156,6 +159,13 @@ if __name__ == "__main__":
     epochs: int = args.epochs
     batch_size: int = args.batch_size
     z_dim: int = args.latent_space
+
+    original_dir = Path(output_dir, Path(data_folder).stem)
+    output_dir = original_dir
+    for i in range(10000):  # Assuming a sensible upper limit to avoid infinite loops
+        if not output_dir.exists():
+            break
+        output_dir = Path(f"{original_dir}_{i + 1}")
 
     if not output_dir.exists():
         output_dir.mkdir(parents=True, exist_ok=True)
