@@ -24,6 +24,10 @@ max_kl_weight = 1.0
 epsilon = 1e-7
 kernel_initializer = tf.keras.initializers.GlorotUniform()
 bias_initializer = tf.keras.initializers.Zeros()
+target_cancer_accuracy = 0.9
+target_systems_accuracy = 0.2
+cancer_weight_multiplier = tf.constant(2.0)
+systems_weight_multiplier = tf.constant(1.0)
 
 
 class Sampling(Layer):
@@ -90,8 +94,13 @@ def build_cancer_classifier(latent_dim):
     return classifier
 
 
-def calculate_kl_weight(current_epoch: int):
-    return min(max_kl_weight, (current_epoch / epochs) * max_kl_weight)
+def calculate_systems_entropy_penalty(systems_classifier_predictions, entropy_epsilon=1e-7):
+    systems_classifier_predictions = tf.clip_by_value(systems_classifier_predictions, entropy_epsilon,
+                                                      1 - entropy_epsilon)
+    entropy = -(systems_classifier_predictions * tf.math.log(systems_classifier_predictions) +
+                (1 - systems_classifier_predictions) * tf.math.log(1 - systems_classifier_predictions))
+    penalty = -tf.reduce_mean(entropy)  # We want to minimize this loss, hence negative entropy
+    return penalty
 
 
 def print_progress(current_step, total_steps, bar_length=40):
@@ -121,6 +130,36 @@ def print_verbose_output():
     tf.print(vae_loss)
 
 
+def adjust_loss_weights(cancer_accuracy, systems_accuracy):
+    global cancer_weight_multiplier, systems_weight_multiplier
+
+    #if cancer_accuracy >= target_cancer_accuracy:
+    #    # Prioritize systems loss to decrease systems accuracy
+    #    systems_weight_multiplier = 6.0  # increase weight
+    #    cancer_weight_multiplier = 2.0  # Decrease weight to maintain cancer accuracy
+    #elif systems_accuracy < target_systems_accuracy and cancer_accuracy < target_cancer_accuracy:
+    #    # Prioritize cancer loss to improve cancer accuracy
+    #    cancer_weight_multiplier = 4.0  # Example: increase weight
+    #    systems_weight_multiplier = 2.0  # Decrease weight to deprioritize systems accuracy
+    #else:
+        # Reset to default weights if none of the conditions are met
+    #    cancer_weight_multiplier = 2.0
+    #    systems_weight_multiplier = 2.0
+
+
+def calculate_total_loss():
+    # systems_loss_penalty = -tf.math.log(systems_classifier_loss + epsilon)
+    # scaled_systems_loss_penalty = systems_weight_multiplier * systems_loss_penalty
+    scaled_cancer_loss = cancer_weight_multiplier * cancer_classifier_loss
+    systems_entropy = calculate_systems_entropy_penalty(systems_predictions)
+
+    # Apply softplus as systems loss penalty transformation
+    # Note: Adjusting the expression inside softplus based on your specific needs
+    scaled_systems_loss_penalty = tf.nn.softplus(systems_weight_multiplier * (1 / (systems_classifier_loss + epsilon)))
+
+    return vae_loss + scaled_cancer_loss + scaled_systems_loss_penalty + systems_entropy
+
+
 class VAE(Model):
     def __init__(self, encoder, decoder, **kwargs):
         super().__init__(**kwargs)
@@ -148,6 +187,10 @@ if __name__ == "__main__":
                         help="The batch size to use for training")
     parser.add_argument("--latent_space", "-lts", action="store", type=int, default=1500,
                         help="The latent space dimension to use for the VAE")
+    parser.add_argument("--cancer_multiplier", "-cm", action="store", type=float, default=2.0,
+                        help="The multiplier to use for the cancer classifier loss")
+    parser.add_argument("--systems_multiplier", "-sm", action="store", type=float, default=2.0,
+                        help="The multiplier to use for the systems classifier loss")
     args = parser.parse_args()
 
     data_folder: Path = Path(args.data)
@@ -159,6 +202,8 @@ if __name__ == "__main__":
     epochs: int = args.epochs
     batch_size: int = args.batch_size
     z_dim: int = args.latent_space
+    cancer_weight_multiplier: float = args.cancer_multiplier
+    systems_weight_multiplier: float = args.systems_multiplier
 
     original_dir = Path(output_dir, Path(data_folder).stem)
     output_dir = original_dir
@@ -227,7 +272,7 @@ if __name__ == "__main__":
         (train_data, train_encoded_system_labels, train_encoded_cancer_labels))
     train_dataset = train_dataset.shuffle(buffer_size=1024).batch(batch_size)
 
-    optimizer = keras.optimizers.Adam(learning_rate=0.001, clipvalue=0.0000000001)
+    optimizer = keras.optimizers.Adam(learning_rate=0.001, clipvalue=0.00000001)
     total_loss_metric = tf.keras.metrics.Mean(name="total_loss")
     cancer_accuracy_metric = tf.keras.metrics.BinaryAccuracy(name='cancer_loss')
     system_accuracy_metric = tf.keras.metrics.BinaryAccuracy(name='system_Loss')
@@ -254,7 +299,7 @@ if __name__ == "__main__":
             if verbose:
                 print(f"Step {step}")
             with tf.GradientTape() as tape:
-                predictions = vae(x_batch_train, training=True)
+                _ = vae(x_batch_train, training=True)
                 z_mean, z_log_var, z = vae.encoder(x_batch_train)
                 reconstruction = vae.decoder(z)
                 reconstruction_loss = losses.mean_squared_error(x_batch_train, reconstruction)
@@ -274,13 +319,24 @@ if __name__ == "__main__":
                 systems_classifier_loss = losses.binary_crossentropy(systems_batch_train, systems_predictions)
                 cancer_classifier_loss = losses.binary_crossentropy(cancers_batch_train, cancer_predictions)
 
+                cancer_accuracy_metric.update_state(cancers_batch_train, cancer_predictions)
+                system_accuracy_metric.update_state(systems_batch_train, systems_predictions)
+
                 # Total loss. Might have to adjust the loss weights
-                total_loss = vae_loss + (2 * cancer_classifier_loss) + 1 / (systems_classifier_loss + epsilon)
+                # total_loss = vae_loss + (2 * cancer_classifier_loss) + 1 / (systems_classifier_loss + epsilon)
+
+                # cancer_accuracy = cancer_accuracy_metric.result()
+                # if cancer_accuracy < target_cancer_accuracy:
+                #    cancer_weight = 4
+                # else:
+                #    cancer_weight = 2
+
+                adjust_loss_weights(cancer_accuracy_metric.result(), system_accuracy_metric.result())
+                total_loss = calculate_total_loss()
 
                 # Update the metrics
                 total_loss_metric.update_state(total_loss)
-                cancer_accuracy_metric.update_state(cancers_batch_train, cancer_predictions)
-                system_accuracy_metric.update_state(systems_batch_train, systems_predictions)
+
                 kl_loss_metric.update_state(kl_loss)
                 vae_loss_metric.update_state(vae_loss)
                 reconstruction_loss_metric.update_state(reconstruction_loss)
@@ -290,10 +346,7 @@ if __name__ == "__main__":
             optimizer.apply_gradients(zip(grads,
                                           vae.trainable_weights + cancer_classifier.trainable_weights + systems_classifier.trainable_weights))
 
-            print_progress(step, len(scaled_data) // batch_size)
-
-        if epoch != 0:
-            kl_weight = calculate_kl_weight(epoch)
+            print_progress(step, len(train_data) // batch_size)
 
         total_loss_value = total_loss_metric.result()
         cancer_accuracy_value = cancer_accuracy_metric.result()
@@ -389,13 +442,19 @@ if __name__ == "__main__":
     system_predictions["System"] = test_system_labels.reset_index(drop=True)
     system_predictions.to_csv(Path(output_dir, "system_predictions.tsv"), index=False)
 
-    hyperparams = []
-    hyperparams.append({
+    run_information = []
+    run_information.append({
         "File Name": Path(args.data).stem,
         "Epochs": epochs,
         "Batch Size": batch_size,
         "Latent Space": z_dim,
         "Epsilon": epsilon,
+        "Cancer Weight Multiplier": cancer_weight_multiplier,
+        "Systems Weight Multiplier": systems_weight_multiplier,
+        "Target Cancer Accuracy": target_cancer_accuracy,
+        "Target Systems Accuracy": target_systems_accuracy,
+        "Best Cancer Accuracy": best_accuracy["Cancer Accuracy"],
+        "Best Systems Accuracy": best_accuracy["Systems Accuracy"]
     })
-    hyperparams = pd.DataFrame(hyperparams)
-    hyperparams.to_csv(Path(output_dir, "hyperparams.tsv"), index=False)
+    run_information = pd.DataFrame(run_information)
+    run_information.to_csv(Path(output_dir, "run_information.tsv"), index=False)
