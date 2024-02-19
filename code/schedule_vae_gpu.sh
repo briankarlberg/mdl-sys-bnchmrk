@@ -9,7 +9,7 @@
 #SBATCH --output=./output_reports/slurm.%N.%j.out
 #SBATCH --error=./error_reports/slurm.%N.%j.err
 #SBATCH --mail-type=FAIL,END
-#SBATCH --mail-user=kirchgae@ohsu.edu;karlberb@ohsu.edu
+#SBATCH --mail-user=kirchgae@ohsu.edu,karlberb@ohsu.edu
 
 
 epochs=$1
