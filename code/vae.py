@@ -13,6 +13,7 @@ import argparse
 from sklearn.preprocessing import LabelEncoder
 import sys
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import f1_score, precision_score, recall_score
 
 epochs = 1
 batch_size = 64
@@ -131,16 +132,16 @@ def print_verbose_output():
 def adjust_loss_weights(cancer_accuracy, systems_accuracy):
     global cancer_weight_multiplier, systems_weight_multiplier
 
-    #if cancer_accuracy >= target_cancer_accuracy:
+    # if cancer_accuracy >= target_cancer_accuracy:
     #    # Prioritize systems loss to decrease systems accuracy
     #    systems_weight_multiplier = 6.0  # increase weight
     #    cancer_weight_multiplier = 2.0  # Decrease weight to maintain cancer accuracy
-    #elif systems_accuracy < target_systems_accuracy and cancer_accuracy < target_cancer_accuracy:
+    # elif systems_accuracy < target_systems_accuracy and cancer_accuracy < target_cancer_accuracy:
     #    # Prioritize cancer loss to improve cancer accuracy
     #    cancer_weight_multiplier = 4.0  # Example: increase weight
     #    systems_weight_multiplier = 2.0  # Decrease weight to deprioritize systems accuracy
-    #else:
-        # Reset to default weights if none of the conditions are met
+    # else:
+    # Reset to default weights if none of the conditions are met
     #    cancer_weight_multiplier = 2.0
     #    systems_weight_multiplier = 2.0
 
@@ -156,6 +157,35 @@ def calculate_total_loss():
     scaled_systems_loss_penalty = tf.nn.softplus(systems_weight_multiplier * (1 / (systems_classifier_loss + epsilon)))
 
     return vae_loss + scaled_cancer_loss + scaled_systems_loss_penalty + systems_entropy
+
+
+def save_model_weights(vae, systems_classifier, cancer_classifier, best_accuracy, cancer_accuracy_value,
+                       systems_accuracy_value):
+    # Define thresholds for acceptable changes
+    cancer_accuracy_improvement_threshold = 0.03
+    systems_accuracy_improvement_threshold = 0.01
+    cancer_accuracy_allowable_decrease = 0.01
+    systems_accuracy_significant_decrease = 0.03
+
+    # Calculate the changes in accuracy
+    change_in_cancer_accuracy = cancer_accuracy_value.numpy() - best_accuracy["Cancer Accuracy"]
+    change_in_systems_accuracy = systems_accuracy_value.numpy() - best_accuracy["Systems Accuracy"]
+
+    # Check conditions for updating weights
+    if ((change_in_cancer_accuracy >= cancer_accuracy_improvement_threshold and
+         change_in_systems_accuracy <= systems_accuracy_improvement_threshold) or
+            (change_in_cancer_accuracy > -cancer_accuracy_allowable_decrease and
+             change_in_systems_accuracy <= -systems_accuracy_significant_decrease)):
+        print(f"Previous Cancer Accuracy: {best_accuracy['Cancer Accuracy']}")
+        print(f"Previous Systems Accuracy: {best_accuracy['Systems Accuracy']}")
+        print("Updating weights...")
+
+        best_accuracy["Cancer Accuracy"] = cancer_accuracy_value.numpy()
+        best_accuracy["Systems Accuracy"] = systems_accuracy_value.numpy()
+
+        return vae.get_weights(), systems_classifier.get_weights(), cancer_classifier.get_weights()
+    else:
+        return vae_weights, systems_classifier_weights, cancer_classifier_weights
 
 
 class VAE(Model):
@@ -279,9 +309,9 @@ if __name__ == "__main__":
     reconstruction_loss_metric = tf.keras.metrics.Mean(name='reconstruction_loss')
 
     training_losses = []
-    vae_weights_history = []
-    systems_weight_history = []
-    cancer_weight_history = []
+    vae_weights = []
+    systems_weight = []
+    cancer_weight = []
     best_accuracy = {"Cancer Accuracy": 0, "Systems Accuracy": 100}
 
     for epoch in range(epochs):
@@ -323,12 +353,6 @@ if __name__ == "__main__":
                 # Total loss. Might have to adjust the loss weights
                 # total_loss = vae_loss + (2 * cancer_classifier_loss) + 1 / (systems_classifier_loss + epsilon)
 
-                # cancer_accuracy = cancer_accuracy_metric.result()
-                # if cancer_accuracy < target_cancer_accuracy:
-                #    cancer_weight = 4
-                # else:
-                #    cancer_weight = 2
-
                 adjust_loss_weights(cancer_accuracy_metric.result(), system_accuracy_metric.result())
                 total_loss = calculate_total_loss()
 
@@ -360,26 +384,19 @@ if __name__ == "__main__":
 
         # compare the accuracy of the cancer and systems classifier and save the weights only if the cancer accuracy value is up and the system accuracy value change only 10% compared to the saved value
         if epoch != 0:
-            # Calculate the 10% difference thresholds for systems accuracy
-            lower_threshold = best_accuracy["Systems Accuracy"] * 0.9
-            upper_threshold = best_accuracy["Systems Accuracy"] * 1.1
+            vae_weights, systems_classifier_weights, cancer_classifier_weights = save_model_weights(vae,
+                                                                                                    systems_classifier,
+                                                                                                    cancer_classifier,
+                                                                                                    best_accuracy,
+                                                                                                    cancer_accuracy_value,
+                                                                                                    systems_accuracy_value)
 
-            if (cancer_accuracy_value.numpy() > best_accuracy["Cancer Accuracy"]
-                    and systems_accuracy_value.numpy() <= upper_threshold):
-                print(f"Previous Cancer Accuracy: {best_accuracy['Cancer Accuracy']}")
-                print(f"Previous Systems Accuracy: {best_accuracy['Systems Accuracy']}")
-                print("Updating weights...")
 
-                vae_weights_history = vae.get_weights()
-                systems_weight_history = systems_classifier.get_weights()
-                cancer_weight_history = cancer_classifier.get_weights()
-                best_accuracy["Cancer Accuracy"] = cancer_accuracy_value.numpy()
-                best_accuracy["Systems Accuracy"] = systems_accuracy_value.numpy()
         else:
             print("Saved initial weights...")
-            vae_weights_history = vae.get_weights()
-            systems_weight_history = systems_classifier.get_weights()
-            cancer_weight_history = cancer_classifier.get_weights()
+            vae_weights = vae.get_weights()
+            systems_classifier_weights = systems_classifier.get_weights()
+            cancer_classifier_weights = cancer_classifier.get_weights()
             best_accuracy["Cancer Accuracy"] = cancer_accuracy_value.numpy()
             best_accuracy["Systems Accuracy"] = systems_accuracy_value.numpy()
 
@@ -400,10 +417,10 @@ if __name__ == "__main__":
     training_losses.to_csv(Path(output_dir, "training_losses.tsv"), index=False)
 
     # restore models to the best weights
-    vae.set_weights(vae_weights_history)
+    vae.set_weights(vae_weights)
 
-    systems_classifier.set_weights(systems_weight_history)
-    cancer_classifier.set_weights(cancer_weight_history)
+    systems_classifier.set_weights(systems_classifier_weights)
+    cancer_classifier.set_weights(cancer_classifier_weights)
 
     # Save the models
     vae.save(Path(output_dir, "vae"))
@@ -431,17 +448,16 @@ if __name__ == "__main__":
     system_predictions = systems_classifier.predict(x_test_encoded)
 
     # save the predictions
-    cancer_predictions = pd.DataFrame(cancer_predictions)
+    cancer_predictions_df = pd.DataFrame(cancer_predictions)
     # use the test set cancer labels
-    cancer_predictions["Cancer"] = test_cancer_labels.reset_index(drop=True)
-    cancer_predictions.to_csv(Path(output_dir, "cancer_predictions.tsv"), index=False)
+    cancer_predictions_df["Cancer"] = test_cancer_labels.reset_index(drop=True)
+    cancer_predictions_df.to_csv(Path(output_dir, "cancer_predictions.tsv"), index=False)
 
-    system_predictions = pd.DataFrame(system_predictions)
-    system_predictions["System"] = test_system_labels.reset_index(drop=True)
-    system_predictions.to_csv(Path(output_dir, "system_predictions.tsv"), index=False)
+    system_predictions_df = pd.DataFrame(system_predictions)
+    system_predictions_df["System"] = test_system_labels.reset_index(drop=True)
+    system_predictions_df.to_csv(Path(output_dir, "system_predictions.tsv"), index=False)
 
-    run_information = []
-    run_information.append({
+    run_information = [{
         "File Name": Path(args.data).stem,
         "Epochs": epochs,
         "Batch Size": batch_size,
@@ -453,6 +469,32 @@ if __name__ == "__main__":
         "Target Systems Accuracy": target_systems_accuracy,
         "Best Cancer Accuracy": best_accuracy["Cancer Accuracy"],
         "Best Systems Accuracy": best_accuracy["Systems Accuracy"]
-    })
+    }]
     run_information = pd.DataFrame(run_information)
     run_information.to_csv(Path(output_dir, "run_information.tsv"), index=False)
+
+    # calculate f1 for cancer predictions using sklearn
+    cancer_predictions = np.where(cancer_predictions > 0.5, 1, 0)
+    cancer_f1 = f1_score(test_encoded_cancer_labels, cancer_predictions)
+
+    # calculate f1 for system predictions using sklearn
+    system_predictions = np.where(system_predictions > 0.5, 1, 0)
+    system_f1 = f1_score(test_encoded_system_labels, system_predictions)
+
+    # calculate precision and recall for cancer and system predictions using sklearn
+    cancer_precision = precision_score(test_encoded_cancer_labels, cancer_predictions)
+    cancer_recall = recall_score(test_encoded_cancer_labels, cancer_predictions)
+
+    system_precision = precision_score(test_encoded_system_labels, system_predictions)
+    system_recall = recall_score(test_encoded_system_labels, system_predictions)
+
+    # create a df with f1, precision and recall
+    metrics = pd.DataFrame({
+        "Cancer F1": [cancer_f1],
+        "System F1": [system_f1],
+        "Cancer Precision": [cancer_precision],
+        "Cancer Recall": [cancer_recall],
+        "System Precision": [system_precision],
+        "System Recall": [system_recall]
+    })
+    metrics.to_csv(Path(output_dir, "metrics.tsv"), index=False)
