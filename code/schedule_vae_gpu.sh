@@ -3,7 +3,6 @@
 #SBATCH --job-name=vae_gpu
 #SBATCH --time=9-00:00:00
 #SBATCH --partition=exacloud
-#SBATCH --qos=long_jobs
 #SBATCH --ntasks=1
 #SBATCH --mem=64000
 #SBATCH --partition gpu --gres gpu:a40:1
