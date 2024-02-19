@@ -26,8 +26,6 @@ kernel_initializer = tf.keras.initializers.GlorotUniform()
 bias_initializer = tf.keras.initializers.Zeros()
 target_cancer_accuracy = 0.9
 target_systems_accuracy = 0.2
-cancer_weight_multiplier = tf.constant(2.0)
-systems_weight_multiplier = tf.constant(1.0)
 
 
 class Sampling(Layer):
@@ -189,7 +187,7 @@ if __name__ == "__main__":
                         help="The latent space dimension to use for the VAE")
     parser.add_argument("--cancer_multiplier", "-cm", action="store", type=float, default=2.0,
                         help="The multiplier to use for the cancer classifier loss")
-    parser.add_argument("--systems_multiplier", "-sm", action="store", type=float, default=2.0,
+    parser.add_argument("--systems_multiplier", "-sm", action="store", type=float, default=2.5,
                         help="The multiplier to use for the systems classifier loss")
     args = parser.parse_args()
 
@@ -202,8 +200,8 @@ if __name__ == "__main__":
     epochs: int = args.epochs
     batch_size: int = args.batch_size
     z_dim: int = args.latent_space
-    cancer_weight_multiplier: float = args.cancer_multiplier
-    systems_weight_multiplier: float = args.systems_multiplier
+    cancer_weight_multiplier = tf.constant(args.cancer_multiplier)
+    systems_weight_multiplier = tf.constant(args.systems_multiplier)
 
     original_dir = Path(output_dir, Path(data_folder).stem)
     output_dir = original_dir
