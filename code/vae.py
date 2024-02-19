@@ -182,6 +182,7 @@ def save_model_weights(vae, systems_classifier, cancer_classifier, best_accuracy
 
         best_accuracy["Cancer Accuracy"] = cancer_accuracy_value.numpy()
         best_accuracy["Systems Accuracy"] = systems_accuracy_value.numpy()
+        best_accuracy["Epoch"] = epoch
 
         return vae.get_weights(), systems_classifier.get_weights(), cancer_classifier.get_weights()
     else:
@@ -312,7 +313,7 @@ if __name__ == "__main__":
     vae_weights = []
     systems_weight = []
     cancer_weight = []
-    best_accuracy = {"Cancer Accuracy": 0, "Systems Accuracy": 100}
+    best_accuracy = {"Cancer Accuracy": 0, "Systems Accuracy": 100, "Epoch": 0}
 
     for epoch in range(epochs):
         print(f"\nStart of epoch: {epoch}")
@@ -447,15 +448,7 @@ if __name__ == "__main__":
     cancer_predictions = cancer_classifier.predict(x_test_encoded)
     system_predictions = systems_classifier.predict(x_test_encoded)
 
-    # save the predictions
-    cancer_predictions_df = pd.DataFrame(cancer_predictions)
-    # use the test set cancer labels
-    cancer_predictions_df["Cancer"] = test_cancer_labels.reset_index(drop=True)
-    cancer_predictions_df.to_csv(Path(output_dir, "cancer_predictions.tsv"), index=False)
 
-    system_predictions_df = pd.DataFrame(system_predictions)
-    system_predictions_df["System"] = test_system_labels.reset_index(drop=True)
-    system_predictions_df.to_csv(Path(output_dir, "system_predictions.tsv"), index=False)
 
     run_information = [{
         "File Name": Path(args.data).stem,
@@ -468,7 +461,8 @@ if __name__ == "__main__":
         "Target Cancer Accuracy": target_cancer_accuracy,
         "Target Systems Accuracy": target_systems_accuracy,
         "Best Cancer Accuracy": best_accuracy["Cancer Accuracy"],
-        "Best Systems Accuracy": best_accuracy["Systems Accuracy"]
+        "Best Systems Accuracy": best_accuracy["Systems Accuracy"],
+        "Best Epoch": best_accuracy["Epoch"]
     }]
     run_information = pd.DataFrame(run_information)
     run_information.to_csv(Path(output_dir, "run_information.tsv"), index=False)
@@ -487,6 +481,19 @@ if __name__ == "__main__":
 
     system_precision = precision_score(test_encoded_system_labels, system_predictions)
     system_recall = recall_score(test_encoded_system_labels, system_predictions)
+
+    # save the predictions
+    cancer_predictions_df = pd.DataFrame(cancer_predictions)
+    cancer_predictions_df["Encoded Labels"] = test_encoded_cancer_labels.reset_index(drop=True)
+    cancer_predictions_df["Correct Labels"] = test_cancer_labels.reset_index(drop=True)
+    cancer_predictions_df["Decoded Predictions"] = cancer_le.inverse_transform(cancer_predictions)
+    cancer_predictions_df.to_csv(Path(output_dir, "cancer_predictions.tsv"), index=False)
+
+    system_predictions_df = pd.DataFrame(system_predictions)
+    system_predictions_df["Encoded Labels"] = test_encoded_system_labels.reset_index(drop=True)
+    system_predictions_df["System"] = test_system_labels.reset_index(drop=True)
+    system_predictions_df["Decoded Predictions"] = system_le.inverse_transform(system_predictions)
+    system_predictions_df.to_csv(Path(output_dir, "system_predictions.tsv"), index=False)
 
     # create a df with f1, precision and recall
     metrics = pd.DataFrame({
