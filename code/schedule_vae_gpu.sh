@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --nodes=1
 #SBATCH --job-name=vae_gpu
-#SBATCH --time=9-00:00:00
+#SBATCH --time=23:00:00
 #SBATCH --partition=exacloud
 #SBATCH --ntasks=1
 #SBATCH --mem=64000
