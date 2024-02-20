@@ -456,8 +456,8 @@ if __name__ == "__main__":
         "Batch Size": batch_size,
         "Latent Space": z_dim,
         "Epsilon": epsilon,
-        "Cancer Weight Multiplier": cancer_weight_multiplier,
-        "Systems Weight Multiplier": systems_weight_multiplier,
+        "Cancer Weight Multiplier": int(cancer_weight_multiplier),
+        "Systems Weight Multiplier": int(systems_weight_multiplier),
         "Target Cancer Accuracy": target_cancer_accuracy,
         "Target Systems Accuracy": target_systems_accuracy,
         "Best Cancer Accuracy": best_accuracy["Cancer Accuracy"],
@@ -487,12 +487,14 @@ if __name__ == "__main__":
     cancer_predictions_df["Encoded Labels"] = test_encoded_cancer_labels.reset_index(drop=True)
     cancer_predictions_df["Correct Labels"] = test_cancer_labels.reset_index(drop=True)
     cancer_predictions_df["Decoded Predictions"] = cancer_le.inverse_transform(cancer_predictions)
+    cancer_predictions_df.rename(columns={0: "Predictions"}, inplace=True)
     cancer_predictions_df.to_csv(Path(output_dir, "cancer_predictions.tsv"), index=False)
 
     system_predictions_df = pd.DataFrame(system_predictions)
     system_predictions_df["Encoded Labels"] = test_encoded_system_labels.reset_index(drop=True)
     system_predictions_df["System"] = test_system_labels.reset_index(drop=True)
     system_predictions_df["Decoded Predictions"] = system_le.inverse_transform(system_predictions)
+    system_predictions_df.rename(columns={0: "Predictions"}, inplace=True)
     system_predictions_df.to_csv(Path(output_dir, "system_predictions.tsv"), index=False)
 
     # create a df with f1, precision and recall

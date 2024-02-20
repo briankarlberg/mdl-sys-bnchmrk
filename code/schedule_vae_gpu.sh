@@ -17,5 +17,7 @@ batch_size=$2
 latent_space=$3
 data=$4
 output_dir=$5
+cancer_multiplier=$6
+systems_multiplier=$7
 
-python3 ./vae.py --epochs "${epochs}" --batch_size "${batch_size}" --latent_space "${latent_space}" --data "${data}" --output_dir "${output_dir}"
+python3 ./vae.py --epochs "${epochs}" --batch_size "${batch_size}" --latent_space "${latent_space}" --data "${data}" --output_dir "${output_dir}" --cancer_multiplier "${cancer_multiplier}" --systems_multiplier "${systems_multiplier}"
