@@ -265,8 +265,10 @@ if __name__ == "__main__":
     # split data into train / test
     train_data, test_data = train_test_split(scaled_data, test_size=0.2, random_state=42)
 
-    pd.DataFrame(train_data, columns=scaled_data.columns).to_csv(Path(output_dir, "train_data.tsv"), index=False)
-    pd.DataFrame(test_data, columns=scaled_data.columns).to_csv(Path(output_dir, "test_data.tsv"), index=False)
+    pd.DataFrame(train_data, columns=scaled_data.columns).to_csv(Path(output_dir, "train_data.tsv"), index=False,
+                                                                 sep='\t')
+    pd.DataFrame(test_data, columns=scaled_data.columns).to_csv(Path(output_dir, "test_data.tsv"), index=False,
+                                                                sep='\t')
 
     # extract the cancer labels based on the index of the train data and the test data
     train_encoded_cancer_labels = encoded_cancer_labels.iloc[train_data.index]
@@ -415,7 +417,7 @@ if __name__ == "__main__":
     print("Training done.")
     # save training loss history
     training_losses = pd.DataFrame(training_losses)
-    training_losses.to_csv(Path(output_dir, "training_losses.tsv"), index=False)
+    training_losses.to_csv(Path(output_dir, "training_losses.tsv"), index=False, sep='\t')
 
     # restore models to the best weights
     vae.set_weights(vae_weights)
@@ -436,19 +438,17 @@ if __name__ == "__main__":
     reconstructed_data = pd.DataFrame(x_test_decoded)
     reconstructed_data["System"] = system_labels.reset_index(drop=True)
     reconstructed_data["Cancer"] = cancer_labels.reset_index(drop=True)
-    reconstructed_data.to_csv(Path(output_dir, "reconstructed_data.tsv"), index=False)
+    reconstructed_data.to_csv(Path(output_dir, "reconstructed_data.tsv"), index=False, sep='\t')
 
     # Save the latent space
     latent_space = pd.DataFrame(x_test_encoded)
     latent_space["Cancer"] = cancer_labels.reset_index(drop=True)
     latent_space["System"] = system_labels.reset_index(drop=True)
-    latent_space.to_csv(Path(output_dir, "latent_space.tsv"), index=False)
+    latent_space.to_csv(Path(output_dir, "latent_space.tsv"), index=False, sep='\t')
 
     # predict cancer and system labels
     cancer_predictions = cancer_classifier.predict(x_test_encoded)
     system_predictions = systems_classifier.predict(x_test_encoded)
-
-
 
     run_information = [{
         "File Name": Path(args.data).stem,
@@ -465,7 +465,7 @@ if __name__ == "__main__":
         "Best Epoch": best_accuracy["Epoch"]
     }]
     run_information = pd.DataFrame(run_information)
-    run_information.to_csv(Path(output_dir, "run_information.tsv"), index=False)
+    run_information.to_csv(Path(output_dir, "run_information.tsv"), index=False, sep='\t')
 
     # calculate f1 for cancer predictions using sklearn
     cancer_predictions = np.where(cancer_predictions > 0.5, 1, 0)
@@ -488,14 +488,14 @@ if __name__ == "__main__":
     cancer_predictions_df["Correct Labels"] = test_cancer_labels.reset_index(drop=True)
     cancer_predictions_df["Decoded Predictions"] = cancer_le.inverse_transform(cancer_predictions)
     cancer_predictions_df.rename(columns={0: "Predictions"}, inplace=True)
-    cancer_predictions_df.to_csv(Path(output_dir, "cancer_predictions.tsv"), index=False)
+    cancer_predictions_df.to_csv(Path(output_dir, "cancer_predictions.tsv"), index=False, sep='\t')
 
     system_predictions_df = pd.DataFrame(system_predictions)
     system_predictions_df["Encoded Labels"] = test_encoded_system_labels.reset_index(drop=True)
     system_predictions_df["System"] = test_system_labels.reset_index(drop=True)
     system_predictions_df["Decoded Predictions"] = system_le.inverse_transform(system_predictions)
     system_predictions_df.rename(columns={0: "Predictions"}, inplace=True)
-    system_predictions_df.to_csv(Path(output_dir, "system_predictions.tsv"), index=False)
+    system_predictions_df.to_csv(Path(output_dir, "system_predictions.tsv"), index=False, sep='\t')
 
     # create a df with f1, precision and recall
     metrics = pd.DataFrame({
@@ -506,4 +506,4 @@ if __name__ == "__main__":
         "System Precision": [system_precision],
         "System Recall": [system_recall]
     })
-    metrics.to_csv(Path(output_dir, "metrics.tsv"), index=False)
+    metrics.to_csv(Path(output_dir, "metrics.tsv"), sep='\t', index=False)
