@@ -264,16 +264,18 @@ if __name__ == "__main__":
     data = data.drop(columns=[cancer_column, system_column, "improve_sample_id"])
 
     # Normalize the data
-    scaler = MinMaxScaler(feature_range=(0, 1))
-    scaled_data = pd.DataFrame(scaler.fit_transform(data))
 
     # split data into train / test
-    train_data, test_data = train_test_split(scaled_data, test_size=0.2, random_state=42)
+    train_data, test_data = train_test_split(data, test_size=0.2, random_state=42)
 
-    pd.DataFrame(train_data, columns=scaled_data.columns).to_csv(Path(output_dir, "train_data.tsv"), index=False,
-                                                                 sep='\t')
-    pd.DataFrame(test_data, columns=scaled_data.columns).to_csv(Path(output_dir, "test_data.tsv"), index=False,
-                                                                sep='\t')
+    scaler = MinMaxScaler(feature_range=(0, 1))
+    scaled_train_data = scaler.fit_transform(train_data)
+    scaled_test_data = scaler.transform(test_data)
+
+    pd.DataFrame(train_data, columns=scaled_train_data.columns).to_csv(Path(output_dir, "train_data.tsv"), index=False,
+                                                                       sep='\t')
+    pd.DataFrame(test_data, columns=scaled_test_data.columns).to_csv(Path(output_dir, "test_data.tsv"), index=False,
+                                                                     sep='\t')
 
     # extract the cancer labels based on the index of the train data and the test data
     train_encoded_cancer_labels = encoded_cancer_labels.iloc[train_data.index]
