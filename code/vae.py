@@ -222,10 +222,13 @@ if __name__ == "__main__":
                         help="The multiplier to use for the cancer classifier loss")
     parser.add_argument("--systems_multiplier", "-sm", action="store", type=float, default=2.5,
                         help="The multiplier to use for the systems classifier loss")
+    parser.add_argument("--only_metrics", "-om", action="store_true", help="Only calculate the metrics and save them"
+                                                                           " to the output directory")
     args = parser.parse_args()
 
     data_folder: Path = Path(args.data)
     data = pd.read_csv(args.data, sep="\t")
+    only_metrics: bool = args.only_metrics
     # print([col for col in list(data.columns) if "entr" not in col])
     # input()
     output_dir: Path = args.output_dir
@@ -233,8 +236,8 @@ if __name__ == "__main__":
     epochs: int = args.epochs
     batch_size: int = args.batch_size
     z_dim: int = args.latent_space
-    cancer_weight_multiplier = tf.constant(args.cancer_multiplier)
-    systems_weight_multiplier = tf.constant(args.systems_multiplier)
+    cancer_weight_multiplier: tf.constant = tf.constant(args.cancer_multiplier)
+    systems_weight_multiplier: tf.constant = tf.constant(args.systems_multiplier)
 
     original_dir = Path(output_dir, Path(data_folder).stem)
     output_dir = original_dir
@@ -266,25 +269,34 @@ if __name__ == "__main__":
     # Normalize the data
 
     # split data into train / test
-    train_data, test_data = train_test_split(data, test_size=0.2, random_state=42)
+    # train_data, test_data = train_test_split(data, test_size=0.2, random_state=42)
 
     scaler = MinMaxScaler(feature_range=(0, 1))
-    scaled_train_data = scaler.fit_transform(train_data)
-    scaled_test_data = scaler.transform(test_data)
+    # scaled_train_data = scaler.fit_transform(train_data)
+    # scaled_test_data = scaler.transform(test_data)
 
-    pd.DataFrame(train_data, columns=scaled_train_data.columns).to_csv(Path(output_dir, "train_data.tsv"), index=False,
-                                                                       sep='\t')
-    pd.DataFrame(test_data, columns=scaled_test_data.columns).to_csv(Path(output_dir, "test_data.tsv"), index=False,
-                                                                     sep='\t')
+    scaled_data = scaler.fit_transform(data)
+
+    if not only_metrics:
+        # save the scaled data
+        scaled_data_save = scaled_data.copy()
+        scaled_data_save["Run_Id"] = run_id
+        pd.DataFrame(scaled_data_save, columns=data.columns).to_csv(Path(output_dir, "scaled_data.tsv"), index=False,
+                                                                    sep='\t')
+        scaled_data_save = None
+
+    
+    # pd.DataFrame(test_data, columns=scaled_test_data.columns).to_csv(Path(output_dir, "test_data.tsv"), index=False,
+    #                                                                sep='\t')
 
     # extract the cancer labels based on the index of the train data and the test data
-    train_encoded_cancer_labels = encoded_cancer_labels.iloc[train_data.index]
-    test_encoded_cancer_labels = encoded_cancer_labels.iloc[test_data.index]
-    test_cancer_labels = cancer_labels.iloc[test_data.index]
+    # train_encoded_cancer_labels = encoded_cancer_labels.iloc[train_data.index]
+    # test_encoded_cancer_labels = encoded_cancer_labels.iloc[test_data.index]
+    # test_cancer_labels = cancer_labels.iloc[test_data.index]
 
-    train_encoded_system_labels = encoded_systems_labels.iloc[train_data.index]
-    test_encoded_system_labels = encoded_systems_labels.iloc[test_data.index]
-    test_system_labels = system_labels.iloc[test_data.index]
+    # train_encoded_system_labels = encoded_systems_labels.iloc[train_data.index]
+    # test_encoded_system_labels = encoded_systems_labels.iloc[test_data.index]
+    # test_system_labels = system_labels.iloc[test_data.index]
 
     input_dim = data.shape[1]
 
@@ -307,7 +319,7 @@ if __name__ == "__main__":
     # vae.fit(scaled_data, epochs=epochs, batch_size=batch_size, callbacks=callbacks)
 
     train_dataset = tf.data.Dataset.from_tensor_slices(
-        (train_data, train_encoded_system_labels, train_encoded_cancer_labels))
+        (scaled_data, encoded_systems_labels, encoded_cancer_labels))
     train_dataset = train_dataset.shuffle(buffer_size=1024).batch(batch_size)
 
     optimizer = keras.optimizers.Adam(learning_rate=0.001, clipvalue=0.00000001)
@@ -383,7 +395,7 @@ if __name__ == "__main__":
             optimizer.apply_gradients(zip(grads,
                                           vae.trainable_weights + cancer_classifier.trainable_weights + systems_classifier.trainable_weights))
 
-            print_progress(step, len(train_data) // batch_size)
+            print_progress(step, len(scaled_data) // batch_size)
 
         total_loss_value = total_loss_metric.result()
         cancer_accuracy_value = cancer_accuracy_metric.result()
@@ -438,17 +450,17 @@ if __name__ == "__main__":
 
     # restore models to the best weights
     vae.set_weights(vae_weights)
-
     systems_classifier.set_weights(systems_classifier_weights)
     cancer_classifier.set_weights(cancer_classifier_weights)
 
-    # Save the models
-    vae.save(Path(output_dir, "vae"))
-    systems_classifier.save(Path(output_dir, "systems_classifier"))
-    cancer_classifier.save(Path(output_dir, "cancer_classifier"))
+    if not only_metrics:
+        # Save the models
+        vae.save(Path(output_dir, "vae"))
+        systems_classifier.save(Path(output_dir, "systems_classifier"))
+        cancer_classifier.save(Path(output_dir, "cancer_classifier"))
 
     # Correcting batch effects
-    _, _, x_test_encoded = vae.encoder.predict(test_data)
+    _, _, x_test_encoded = vae.encoder.predict(scaled_data)
     x_test_decoded = vae.decoder.predict(x_test_encoded)
 
     # Save the reconstructed data
@@ -489,35 +501,36 @@ if __name__ == "__main__":
 
     # calculate f1 for cancer predictions using sklearn
     cancer_predictions = np.where(cancer_predictions > 0.5, 1, 0)
-    cancer_f1 = f1_score(test_encoded_cancer_labels, cancer_predictions)
+    cancer_f1 = f1_score(encoded_cancer_labels, cancer_predictions)
 
     # calculate f1 for system predictions using sklearn
     system_predictions = np.where(system_predictions > 0.5, 1, 0)
-    system_f1 = f1_score(test_encoded_system_labels, system_predictions)
+    system_f1 = f1_score(encoded_systems_labels, system_predictions)
 
     # calculate precision and recall for cancer and system predictions using sklearn
-    cancer_precision = precision_score(test_encoded_cancer_labels, cancer_predictions)
-    cancer_recall = recall_score(test_encoded_cancer_labels, cancer_predictions)
+    cancer_precision = precision_score(encoded_cancer_labels, cancer_predictions)
+    cancer_recall = recall_score(encoded_cancer_labels, cancer_predictions)
 
-    system_precision = precision_score(test_encoded_system_labels, system_predictions)
-    system_recall = recall_score(test_encoded_system_labels, system_predictions)
+    system_precision = precision_score(encoded_systems_labels, system_predictions)
+    system_recall = recall_score(encoded_systems_labels, system_predictions)
 
-    # save the predictions
-    cancer_predictions_df = pd.DataFrame(cancer_predictions)
-    cancer_predictions_df["Encoded_Labels"] = test_encoded_cancer_labels.reset_index(drop=True)
-    cancer_predictions_df["Correct_Labels"] = test_cancer_labels.reset_index(drop=True)
-    cancer_predictions_df["Decoded_Predictions"] = cancer_le.inverse_transform(cancer_predictions)
-    cancer_predictions_df.rename(columns={0: "Predictions"}, inplace=True)
-    cancer_predictions_df["Run_Id"] = run_id
-    cancer_predictions_df.to_csv(Path(output_dir, "cancer_predictions.tsv"), index=False, sep='\t')
+    if not only_metrics:
+        # save the predictions
+        cancer_predictions_df = pd.DataFrame(cancer_predictions)
+        cancer_predictions_df["Encoded_Labels"] = encoded_cancer_labels.reset_index(drop=True)
+        cancer_predictions_df["Correct_Labels"] = cancer_labels.reset_index(drop=True)
+        cancer_predictions_df["Decoded_Predictions"] = cancer_le.inverse_transform(cancer_predictions)
+        cancer_predictions_df.rename(columns={0: "Predictions"}, inplace=True)
+        cancer_predictions_df["Run_Id"] = run_id
+        cancer_predictions_df.to_csv(Path(output_dir, "cancer_predictions.tsv"), index=False, sep='\t')
 
-    system_predictions_df = pd.DataFrame(system_predictions)
-    system_predictions_df["Encoded_Labels"] = test_encoded_system_labels.reset_index(drop=True)
-    system_predictions_df["Correct_labels"] = test_system_labels.reset_index(drop=True)
-    system_predictions_df["Decoded_Predictions"] = system_le.inverse_transform(system_predictions)
-    system_predictions_df.rename(columns={0: "Predictions"}, inplace=True)
-    system_predictions_df["Run_Id"] = run_id
-    system_predictions_df.to_csv(Path(output_dir, "system_predictions.tsv"), index=False, sep='\t')
+        system_predictions_df = pd.DataFrame(system_predictions)
+        system_predictions_df["Encoded_Labels"] = encoded_systems_labels.reset_index(drop=True)
+        system_predictions_df["Correct_labels"] = system_labels.reset_index(drop=True)
+        system_predictions_df["Decoded_Predictions"] = system_le.inverse_transform(system_predictions)
+        system_predictions_df.rename(columns={0: "Predictions"}, inplace=True)
+        system_predictions_df["Run_Id"] = run_id
+        system_predictions_df.to_csv(Path(output_dir, "system_predictions.tsv"), index=False, sep='\t')
 
     # create a df with f1, precision and recall
     metrics = pd.DataFrame({
