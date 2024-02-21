@@ -8,5 +8,5 @@ files=(pancreatic-adeno+lung-adeno_transcriptomics_cell-line+CPTAC.tsv renal-cle
 for file in "${files[@]}"; do
   # iterate thorugh the pair wise combination of cancer and system weights
     echo file="${file}"
-    sbatch ./schedule_vae_cpu.sh 50 64 1500 ../output/cancer_pairs/${file}
+    sbatch ./create_lsp_v1.sh 50 64 1500 ../output/cancer_pairs/${file}
 done
