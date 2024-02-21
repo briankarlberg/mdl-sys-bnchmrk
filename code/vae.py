@@ -1,3 +1,5 @@
+import uuid
+
 import keras.optimizers
 import numpy as np
 import pandas as pd
@@ -244,6 +246,9 @@ if __name__ == "__main__":
     if not output_dir.exists():
         output_dir.mkdir(parents=True, exist_ok=True)
 
+    # The unique run id
+    run_id: uuid = uuid.uuid4()
+
     system_labels = data[system_column].copy()
     # convert labels to binary using a label encoder
     system_le = LabelEncoder()
@@ -259,14 +264,18 @@ if __name__ == "__main__":
     data = data.drop(columns=[cancer_column, system_column, "improve_sample_id"])
 
     # Normalize the data
-    scaler = MinMaxScaler(feature_range=(0, 1))
-    scaled_data = pd.DataFrame(scaler.fit_transform(data))
 
     # split data into train / test
-    train_data, test_data = train_test_split(scaled_data, test_size=0.2, random_state=42)
+    train_data, test_data = train_test_split(data, test_size=0.2, random_state=42)
 
-    pd.DataFrame(train_data, columns=scaled_data.columns).to_csv(Path(output_dir, "train_data.tsv"), index=False)
-    pd.DataFrame(test_data, columns=scaled_data.columns).to_csv(Path(output_dir, "test_data.tsv"), index=False)
+    scaler = MinMaxScaler(feature_range=(0, 1))
+    scaled_train_data = scaler.fit_transform(train_data)
+    scaled_test_data = scaler.transform(test_data)
+
+    pd.DataFrame(train_data, columns=scaled_train_data.columns).to_csv(Path(output_dir, "train_data.tsv"), index=False,
+                                                                       sep='\t')
+    pd.DataFrame(test_data, columns=scaled_test_data.columns).to_csv(Path(output_dir, "test_data.tsv"), index=False,
+                                                                     sep='\t')
 
     # extract the cancer labels based on the index of the train data and the test data
     train_encoded_cancer_labels = encoded_cancer_labels.iloc[train_data.index]
@@ -303,8 +312,10 @@ if __name__ == "__main__":
 
     optimizer = keras.optimizers.Adam(learning_rate=0.001, clipvalue=0.00000001)
     total_loss_metric = tf.keras.metrics.Mean(name="total_loss")
-    cancer_accuracy_metric = tf.keras.metrics.BinaryAccuracy(name='cancer_loss')
-    system_accuracy_metric = tf.keras.metrics.BinaryAccuracy(name='system_Loss')
+    cancer_accuracy_metric = tf.keras.metrics.BinaryAccuracy(name='cancer_accuracy')
+    system_accuracy_metric = tf.keras.metrics.BinaryAccuracy(name='systema_accuracy')
+    cancer_loss_metric = tf.keras.metrics.Mean(name="cancer_loss")
+    systems_loss_metric = tf.keras.metrics.Mean(name="system_Loss")
     kl_loss_metric = tf.keras.metrics.Mean(name='kl_loss')
     vae_loss_metric = tf.keras.metrics.Mean(name='vae_loss')
     reconstruction_loss_metric = tf.keras.metrics.Mean(name='reconstruction_loss')
@@ -348,6 +359,9 @@ if __name__ == "__main__":
                 systems_classifier_loss = losses.binary_crossentropy(systems_batch_train, systems_predictions)
                 cancer_classifier_loss = losses.binary_crossentropy(cancers_batch_train, cancer_predictions)
 
+                cancer_loss_metric.update_state(cancer_classifier_loss)
+                systems_loss_metric.update_state(systems_classifier_loss)
+
                 cancer_accuracy_metric.update_state(cancers_batch_train, cancer_predictions)
                 system_accuracy_metric.update_state(systems_batch_train, systems_predictions)
 
@@ -377,6 +391,8 @@ if __name__ == "__main__":
         kl_loss_value = kl_loss_metric.result()
         vae_loss_value = vae_loss_metric.result()
         reconstruction_loss_value = reconstruction_loss_metric.result()
+        cancer_loss_value = cancer_loss_metric.result()
+        systems_loss_value = systems_loss_metric.result()
 
         print(
             f"\nTotal Loss: {total_loss_value.numpy()} - Cancer Accuracy: {cancer_accuracy_value.numpy()} - Systems Accuracy:"
@@ -404,18 +420,21 @@ if __name__ == "__main__":
         # add losses to the training losses dict
         training_losses.append({
             "Epoch": epoch,
-            "Total Loss": total_loss_value.numpy(),
-            "Cancer Accuracy": cancer_accuracy_value.numpy(),
-            "Systems Accuracy": systems_accuracy_value.numpy(),
-            "KL Loss": kl_loss_value.numpy(),
-            "VAE Loss": vae_loss_value.numpy(),
-            "Reconstruction Loss": reconstruction_loss_value.numpy()
+            "Total_Loss": total_loss_value.numpy(),
+            "Cancer_Accuracy": cancer_accuracy_value.numpy(),
+            "Systems_Accuracy": systems_accuracy_value.numpy(),
+            "KL_Loss": kl_loss_value.numpy(),
+            "VAE_Loss": vae_loss_value.numpy(),
+            "Reconstruction_Loss": reconstruction_loss_value.numpy(),
+            "Cancer_Loss": cancer_loss_value.numpy(),
+            "Systems_Loss": systems_loss_value.numpy(),
         })
 
     print("Training done.")
     # save training loss history
     training_losses = pd.DataFrame(training_losses)
-    training_losses.to_csv(Path(output_dir, "training_losses.tsv"), index=False)
+    training_losses["Run_Id"] = run_id
+    training_losses.to_csv(Path(output_dir, "training_losses.tsv"), index=False, sep='\t')
 
     # restore models to the best weights
     vae.set_weights(vae_weights)
@@ -436,36 +455,37 @@ if __name__ == "__main__":
     reconstructed_data = pd.DataFrame(x_test_decoded)
     reconstructed_data["System"] = system_labels.reset_index(drop=True)
     reconstructed_data["Cancer"] = cancer_labels.reset_index(drop=True)
-    reconstructed_data.to_csv(Path(output_dir, "reconstructed_data.tsv"), index=False)
+    reconstructed_data["Run_Id"] = run_id
+    reconstructed_data.to_csv(Path(output_dir, "reconstructed_data.tsv"), index=False, sep='\t')
 
     # Save the latent space
     latent_space = pd.DataFrame(x_test_encoded)
     latent_space["Cancer"] = cancer_labels.reset_index(drop=True)
     latent_space["System"] = system_labels.reset_index(drop=True)
-    latent_space.to_csv(Path(output_dir, "latent_space.tsv"), index=False)
+    latent_space["Run_Id"] = run_id
+    latent_space.to_csv(Path(output_dir, "latent_space.tsv"), index=False, sep='\t')
 
     # predict cancer and system labels
     cancer_predictions = cancer_classifier.predict(x_test_encoded)
     system_predictions = systems_classifier.predict(x_test_encoded)
 
-
-
     run_information = [{
-        "File Name": Path(args.data).stem,
+        "Run_Id": run_id,
+        "File_Name": Path(args.data).stem,
         "Epochs": epochs,
-        "Batch Size": batch_size,
-        "Latent Space": z_dim,
+        "Batch_Size": batch_size,
+        "Latent_Space": z_dim,
         "Epsilon": epsilon,
-        "Cancer Weight Multiplier": int(cancer_weight_multiplier),
-        "Systems Weight Multiplier": int(systems_weight_multiplier),
-        "Target Cancer Accuracy": target_cancer_accuracy,
-        "Target Systems Accuracy": target_systems_accuracy,
-        "Best Cancer Accuracy": best_accuracy["Cancer Accuracy"],
-        "Best Systems Accuracy": best_accuracy["Systems Accuracy"],
-        "Best Epoch": best_accuracy["Epoch"]
+        "Cancer_Weight_Multiplier": int(cancer_weight_multiplier),
+        "Systems_Weight_Multiplier": int(systems_weight_multiplier),
+        "Target_Cancer_Accuracy": target_cancer_accuracy,
+        "Target_Systems_Accuracy": target_systems_accuracy,
+        "Best_Cancer_Accuracy": best_accuracy["Cancer Accuracy"],
+        "Best_Systems_Accuracy": best_accuracy["Systems Accuracy"],
+        "Best_Epoch": best_accuracy["Epoch"]
     }]
     run_information = pd.DataFrame(run_information)
-    run_information.to_csv(Path(output_dir, "run_information.tsv"), index=False)
+    run_information.to_csv(Path(output_dir, "run_information.tsv"), index=False, sep='\t')
 
     # calculate f1 for cancer predictions using sklearn
     cancer_predictions = np.where(cancer_predictions > 0.5, 1, 0)
@@ -484,26 +504,29 @@ if __name__ == "__main__":
 
     # save the predictions
     cancer_predictions_df = pd.DataFrame(cancer_predictions)
-    cancer_predictions_df["Encoded Labels"] = test_encoded_cancer_labels.reset_index(drop=True)
-    cancer_predictions_df["Correct Labels"] = test_cancer_labels.reset_index(drop=True)
-    cancer_predictions_df["Decoded Predictions"] = cancer_le.inverse_transform(cancer_predictions)
+    cancer_predictions_df["Encoded_Labels"] = test_encoded_cancer_labels.reset_index(drop=True)
+    cancer_predictions_df["Correct_Labels"] = test_cancer_labels.reset_index(drop=True)
+    cancer_predictions_df["Decoded_Predictions"] = cancer_le.inverse_transform(cancer_predictions)
     cancer_predictions_df.rename(columns={0: "Predictions"}, inplace=True)
-    cancer_predictions_df.to_csv(Path(output_dir, "cancer_predictions.tsv"), index=False)
+    cancer_predictions_df["Run_Id"] = run_id
+    cancer_predictions_df.to_csv(Path(output_dir, "cancer_predictions.tsv"), index=False, sep='\t')
 
     system_predictions_df = pd.DataFrame(system_predictions)
-    system_predictions_df["Encoded Labels"] = test_encoded_system_labels.reset_index(drop=True)
-    system_predictions_df["System"] = test_system_labels.reset_index(drop=True)
-    system_predictions_df["Decoded Predictions"] = system_le.inverse_transform(system_predictions)
+    system_predictions_df["Encoded_Labels"] = test_encoded_system_labels.reset_index(drop=True)
+    system_predictions_df["Correct_labels"] = test_system_labels.reset_index(drop=True)
+    system_predictions_df["Decoded_Predictions"] = system_le.inverse_transform(system_predictions)
     system_predictions_df.rename(columns={0: "Predictions"}, inplace=True)
-    system_predictions_df.to_csv(Path(output_dir, "system_predictions.tsv"), index=False)
+    system_predictions_df["Run_Id"] = run_id
+    system_predictions_df.to_csv(Path(output_dir, "system_predictions.tsv"), index=False, sep='\t')
 
     # create a df with f1, precision and recall
     metrics = pd.DataFrame({
-        "Cancer F1": [cancer_f1],
-        "System F1": [system_f1],
-        "Cancer Precision": [cancer_precision],
-        "Cancer Recall": [cancer_recall],
-        "System Precision": [system_precision],
-        "System Recall": [system_recall]
+        "Run_Id": run_id,
+        "Cancer_F1": [cancer_f1],
+        "System_F1": [system_f1],
+        "Cancer_Precision": [cancer_precision],
+        "Cancer_Recall": [cancer_recall],
+        "System_Precision": [system_precision],
+        "System_Recall": [system_recall]
     })
-    metrics.to_csv(Path(output_dir, "metrics.tsv"), index=False)
+    metrics.to_csv(Path(output_dir, "metrics.tsv"), sep='\t', index=False)
