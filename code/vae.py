@@ -465,15 +465,15 @@ if __name__ == "__main__":
 
     # Save the reconstructed data
     reconstructed_data = pd.DataFrame(x_test_decoded)
-    reconstructed_data["System"] = system_labels.reset_index(drop=True)
-    reconstructed_data["Cancer"] = cancer_labels.reset_index(drop=True)
+    reconstructed_data[system_column] = system_labels.reset_index(drop=True)
+    reconstructed_data[cancer_column] = cancer_labels.reset_index(drop=True)
     reconstructed_data["Run_Id"] = run_id
     reconstructed_data.to_csv(Path(output_dir, "reconstructed_data.tsv"), index=False, sep='\t')
 
     # Save the latent space
     latent_space = pd.DataFrame(x_test_encoded)
-    latent_space["Cancer"] = cancer_labels.reset_index(drop=True)
-    latent_space["System"] = system_labels.reset_index(drop=True)
+    latent_space[cancer_column] = cancer_labels.reset_index(drop=True)
+    latent_space[system_column] = system_labels.reset_index(drop=True)
     latent_space["Run_Id"] = run_id
     latent_space.to_csv(Path(output_dir, "latent_space.tsv"), index=False, sep='\t')
 
