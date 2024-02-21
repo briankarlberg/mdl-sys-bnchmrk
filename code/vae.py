@@ -285,7 +285,6 @@ if __name__ == "__main__":
                                                                     sep='\t')
         scaled_data_save = None
 
-
     # pd.DataFrame(test_data, columns=scaled_test_data.columns).to_csv(Path(output_dir, "test_data.tsv"), index=False,
     #                                                                sep='\t')
 
@@ -314,8 +313,11 @@ if __name__ == "__main__":
 
     # Compile models
     systems_classifier = build_systems_classifier(latent_dim=z_dim)
+    systems_classifier.compile(optimizer=optimizers.Adam(), loss=losses.binary_crossentropy,
+                               metrics=[metrics.binary_accuracy])
     cancer_classifier = build_cancer_classifier(latent_dim=z_dim)
-
+    cancer_classifier.compile(optimizer=optimizers.Adam(), loss=losses.binary_crossentropy,
+                              metrics=[metrics.binary_accuracy])
     # vae.fit(scaled_data, epochs=epochs, batch_size=batch_size, callbacks=callbacks)
 
     train_dataset = tf.data.Dataset.from_tensor_slices(
