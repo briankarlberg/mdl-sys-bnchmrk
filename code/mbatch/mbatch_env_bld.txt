@@ -1,4 +1,0 @@
-This file describes the build procedure for the mbatch environment
-
-Requires R version 4.0 or earlier
-

@@ -1,0 +1,91 @@
+<mxfile host="Electron" modified="2024-02-21T01:40:58.826Z" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/23.1.5 Chrome/120.0.6099.109 Electron/28.1.0 Safari/537.36" etag="PfjKR51leVP4pwiIBa1h" version="23.1.5" type="device">
+  <diagram name="Page-1" id="i5QD1DtFK2a_tuGj_9DG">
+    <mxGraphModel dx="2073" dy="499" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="850" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="in4go4ZFbYDDZpvTmrMZ-16" value="" style="shape=flexArrow;endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="in4go4ZFbYDDZpvTmrMZ-4" target="XVsIk3HCtGy-l6zAL8zQ-6" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="-850" y="305" as="sourcePoint" />
+            <mxPoint x="-600" y="300" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="in4go4ZFbYDDZpvTmrMZ-15" value="" style="shape=flexArrow;endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" parent="1" target="XVsIk3HCtGy-l6zAL8zQ-2" edge="1" source="XVsIk3HCtGy-l6zAL8zQ-13">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="-802.5" y="260" as="sourcePoint" />
+            <mxPoint x="-860" y="230" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="in4go4ZFbYDDZpvTmrMZ-14" value="" style="shape=flexArrow;endArrow=classic;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="-884.9999999999998" y="297.5" as="sourcePoint" />
+            <mxPoint x="-840" y="297.5" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="in4go4ZFbYDDZpvTmrMZ-1" value="CODER Data&lt;br&gt;dataloader" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;" parent="1" vertex="1">
+          <mxGeometry x="-1090" y="260" width="90" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="in4go4ZFbYDDZpvTmrMZ-3" value="mbatch" style="whiteSpace=wrap;html=1;aspect=fixed;" parent="1" vertex="1">
+          <mxGeometry x="-720" y="140" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="in4go4ZFbYDDZpvTmrMZ-4" value="VAE" style="whiteSpace=wrap;html=1;aspect=fixed;direction=south;" parent="1" vertex="1">
+          <mxGeometry x="-660" y="260" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="in4go4ZFbYDDZpvTmrMZ-10" value="" style="shape=flexArrow;endArrow=classic;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;" parent="1" edge="1" source="in4go4ZFbYDDZpvTmrMZ-1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="-990" y="300" as="sourcePoint" />
+            <mxPoint x="-960" y="300" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="XVsIk3HCtGy-l6zAL8zQ-2" value="Split into two files by cancer" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="-840" y="140" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="XVsIk3HCtGy-l6zAL8zQ-5" value="" style="shape=flexArrow;endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" target="in4go4ZFbYDDZpvTmrMZ-4">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="-760" y="299.5" as="sourcePoint" />
+            <mxPoint x="-720" y="299.5" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="XVsIk3HCtGy-l6zAL8zQ-6" value="Classification on latent space, both labels and UMAPs" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="-480" y="260" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="XVsIk3HCtGy-l6zAL8zQ-7" value="Merge back into one file&lt;br&gt;by cancer" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="-600" y="140" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="XVsIk3HCtGy-l6zAL8zQ-8" value="" style="shape=flexArrow;endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=0;exitDx=0;exitDy=0;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="-760" y="179.58" as="sourcePoint" />
+            <mxPoint x="-720" y="179.58" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="XVsIk3HCtGy-l6zAL8zQ-10" value="" style="shape=flexArrow;endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=0;exitDx=0;exitDy=0;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="-640" y="179.58" as="sourcePoint" />
+            <mxPoint x="-600" y="179.58" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="XVsIk3HCtGy-l6zAL8zQ-12" value="&lt;meta charset=&quot;utf-8&quot;&gt;&lt;span style=&quot;color: rgb(0, 0, 0); font-family: Helvetica; font-size: 12px; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: center; text-indent: 0px; text-transform: none; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(251, 251, 251); text-decoration-thickness: initial; text-decoration-style: initial; text-decoration-color: initial; float: none; display: inline !important;&quot;&gt;Data structuring&lt;/span&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="-960" y="260" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="XVsIk3HCtGy-l6zAL8zQ-13" value="Classification on both labels and UMAPs" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="-840" y="260" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="XVsIk3HCtGy-l6zAL8zQ-14" value="" style="shape=curlyBracket;whiteSpace=wrap;html=1;rounded=1;flipH=1;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="-390" y="140" width="20" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="XVsIk3HCtGy-l6zAL8zQ-15" value="10 splits,&lt;br&gt;matching&lt;br&gt;indices" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="-370" y="210" width="70" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="XVsIk3HCtGy-l6zAL8zQ-16" value="Classification on both labels and UMAPs" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="-480" y="140" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="XVsIk3HCtGy-l6zAL8zQ-17" value="" style="shape=flexArrow;endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=0;exitDx=0;exitDy=0;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="-520" y="179.58" as="sourcePoint" />
+            <mxPoint x="-480" y="179.58" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
