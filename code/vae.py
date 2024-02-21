@@ -279,13 +279,13 @@ if __name__ == "__main__":
 
     if not only_metrics:
         # save the scaled data
-        scaled_data_save = scaled_data.copy()
+        scaled_data_save = pd.DataFrame(scaled_data.copy(), columns=data.columns)
         scaled_data_save["Run_Id"] = run_id
         pd.DataFrame(scaled_data_save, columns=data.columns).to_csv(Path(output_dir, "scaled_data.tsv"), index=False,
                                                                     sep='\t')
         scaled_data_save = None
 
-    
+
     # pd.DataFrame(test_data, columns=scaled_test_data.columns).to_csv(Path(output_dir, "test_data.tsv"), index=False,
     #                                                                sep='\t')
 
