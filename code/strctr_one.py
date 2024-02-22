@@ -4,7 +4,6 @@
     # will read from strctrd/one_cncr files
 # pwd: /mdl-sys-bnchmrk/code
 
-Imports
 import coderdata as cd
 import glob
 import pandas as pd
