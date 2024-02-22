@@ -4,6 +4,7 @@
     # will read from strctrd/one_cncr files
 """
 # Download data
+# https://pnnl-compbio.github.io/coderdata/pages/usage
 
 # pwd: data/beataml
 # cd.download_data_by_prefix('beataml')
@@ -19,7 +20,7 @@
 """
 # pwd: /mdl-sys-bnchmrk/code
 
-Imports
+# Imports
 import coderdata as cd
 import glob
 import pandas as pd
@@ -40,7 +41,7 @@ import strctr
 
 systems = 'cell-line+CPTAC'
 
-# Read data
+# Read data (construct loader objects)
 cell_line = cd.DatasetLoader('cell_line', data_directory = '../data/cell_line/') # a
 cptac = cd.DatasetLoader('cptac', data_directory = '../data/cptac/') # b
 
@@ -60,14 +61,12 @@ sys_b_lbl = 'CPTAC'
 # Transcriptomics data modality extraction
 modality = 'transcriptomics' # to file name
 moda = 'tran_' # to columns and index
-mda_n_sys_a = cell_line.transcriptomics[cell_line.transcriptomics.improve_sample_id.isin(ids_sys_a)] # cl
-mda_n_sys_b = cptac.transcriptomics[cptac.transcriptomics.improve_sample_id.isin(ids_sys_b)]
 
 # Proteomics data modality extraction
 # modality = 'proteomics' # to file name
 # moda = 'prot_' # to columns and index
-# mda_n_sys_a = cell_line.proteomics[cell_line.proteomics.improve_sample_id.isin(ids_proj_a)] # cl
-# mda_n_sys_b = cptac.proteomics[cptac.proteomics.improve_sample_id.isin(ids_proj_b)]
+## mda_n_sys_a = cell_line.proteomics[cell_line.proteomics.improve_sample_id.isin(ids_proj_a)] # cl
+## mda_n_sys_b = cptac.proteomics[cptac.proteomics.improve_sample_id.isin(ids_proj_b)]
 
 # Copy number and Mutations data modality extractions insertion point
 
@@ -80,16 +79,19 @@ b_list = ['Breast carcinoma',
           'Breast carcinoma',
           'Breast carcinoma']
 
-print(cncr)
-ids_sys_a = sys_a_samp_canc_n.improve_sample_id # cl
-ids_sys_b = sys_b_samp_canc_n.improve_sample_id # cp
-
 for i, cncr in enumerate(names):
     # cncr = a_list[i]
     cncr_lbl = labels[i]
+    
     sys_a_samp_canc_n = sys_a_samp[sys_a_samp.cancer_type == a_list[i]]
     sys_b_samp_canc_n = sys_b_samp[sys_b_samp.cancer_type == b_list[i]]
 
+    ids_sys_a = sys_a_samp_canc_n.improve_sample_id # cl
+    ids_sys_b = sys_b_samp_canc_n.improve_sample_id # cp
+
+    mda_n_sys_a = cell_line.transcriptomics[cell_line.transcriptomics.improve_sample_id.isin(ids_sys_a)] # cl
+    mda_n_sys_b = cptac.transcriptomics[cptac.transcriptomics.improve_sample_id.isin(ids_sys_b)]
+    break
     df_lite, size, na_count, inf_count = df_check(mda_n_sys_a)
     print(sys_a, '| sys a')
     print(cncr, modality)
