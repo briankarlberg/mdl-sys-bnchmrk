@@ -1,7 +1,24 @@
 # strctr_one.py
 # Script to build one_cncr files
-# Sript for building strctrd/two_cncr files
-# will read from strctrd/one_cncr files
+
+    # Sript for building strctrd/two_cncr files
+    # will read from strctrd/one_cncr files
+"""
+# Download data
+
+# pwd: data/beataml
+# cd.download_data_by_prefix('beataml')
+
+# pwd: data/cell_line
+# cd.download_data_by_prefix('cell_line')
+
+# pwd: data/cptac
+# cd.download_data_by_prefix('cptac')
+
+# pwd: data/hcmi
+# cd.download_data_by_prefix('hcmi')
+"""
+
 # pwd: /mdl-sys-bnchmrk/code
 
 import coderdata as cd
