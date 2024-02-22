@@ -1,5 +1,6 @@
 # strctr_one.py
 # Script to build one_cncr files
+
     # Sript for building strctrd/two_cncr files
     # will read from strctrd/one_cncr files
 """
@@ -18,6 +19,7 @@
 # pwd: data/hcmi
 # cd.download_data_by_prefix('hcmi')
 """
+
 # pwd: /mdl-sys-bnchmrk/code
 
 # Imports <-------------------------------- Devel toggle
@@ -135,7 +137,7 @@ for i, cncr in enumerate(names):
     mda_n_sys_a = cell_line.transcriptomics[cell_line.transcriptomics.improve_sample_id.isin(ids_sys_a)] # cl
     mda_n_sys_b = cptac.transcriptomics[cptac.transcriptomics.improve_sample_id.isin(ids_sys_b)]
     # break
-    df_lite, size, na_count, inf_count = df_check(mda_n_sys_a)
+    df_lite, size, na_count, inf_count = strctr.df_check(mda_n_sys_a)
     print(sys_a, '| sys a')
     print(cncr, modality)
     print('len: ', size)
@@ -147,18 +149,18 @@ for i, cncr in enumerate(names):
     dot_T.dropna(axis = 1, inplace = True)
     a = dot_T # cell line
 
-    df_lite, size, na_count, inf_count = df_check(mda_n_sys_b)
+    df_lite, size, na_count, inf_count = strctr.df_check(mda_n_sys_b)
     print(sys_b, '| sys b')
     print(cncr, modality)
     print('len: ', size)
     print('NaNs: ', na_count)
     print('Infs: ', inf_count)
-    
-    wall_clock, dot_T = extract(df_lite)
-    dot_T = g(moda, dot_T.copy())
-    dot_T.dropna(axis = 1, inplace = True)
-    b = dot_T # cptac
-    
+
+    wall_clock, dot_T = strctr.extract(df_lite)
+    dot_T = strctr.g(moda, dot_T.copy())
+    dot_T.dropna(axis=1, inplace=True)
+    b = dot_T  # cptac
+
     a.insert(0, 'Cancer_type', cncr_lbl)
     b.insert(0, 'Cancer_type', cncr_lbl)
     a.insert(0, 'System', sys_a_lbl)

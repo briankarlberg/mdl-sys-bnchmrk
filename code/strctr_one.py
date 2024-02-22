@@ -137,7 +137,7 @@ for i, cncr in enumerate(names):
     mda_n_sys_a = cell_line.transcriptomics[cell_line.transcriptomics.improve_sample_id.isin(ids_sys_a)] # cl
     mda_n_sys_b = cptac.transcriptomics[cptac.transcriptomics.improve_sample_id.isin(ids_sys_b)]
     # break
-    df_lite, size, na_count, inf_count = df_check(mda_n_sys_a)
+    df_lite, size, na_count, inf_count = strctr.df_check(mda_n_sys_a)
     print(sys_a, '| sys a')
     print(cncr, modality)
     print('len: ', size)
