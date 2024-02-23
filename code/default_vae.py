@@ -14,6 +14,8 @@ epochs = 50
 batch_size = 64
 z_dim = 1500
 activation = tf.nn.relu
+systems_column = "System"
+cancer_column = "Cancer_type"
 
 
 class Sampling(Layer):
@@ -99,10 +101,13 @@ class KLWeightScheduler(tf.keras.callbacks.Callback):
         self.max_kl_weight = max_kl_weight
         self.num_epochs = num_epochs
 
-    def on_epoch_end(self, batch, logs=None):
+    def on_epoch_end(self, epoch, logs=None):
         # Calculate the new value for the KL weight
-        new_kl_weight = min(self.max_kl_weight, (batch / self.num_epochs) * self.max_kl_weight)
+        new_kl_weight = min(self.max_kl_weight, (epoch / self.num_epochs) * self.max_kl_weight)
         kl_weight.assign(new_kl_weight)
+
+        if epoch > 4:
+            kl_weight.assign(1.0)
 
 
 if __name__ == "__main__":
@@ -114,17 +119,27 @@ if __name__ == "__main__":
                         help="The output dir where the results should be stored. If it does not exist, it will be created.")
     args = parser.parse_args()
 
+    data_folder = Path(args.data)
     data = pd.read_csv(args.data, sep="\t")
+
     output_dir = args.output_dir
+
+    original_dir = Path(output_dir, Path(data_folder).stem)
+    output_dir = original_dir
+    for i in range(10000):  # Assuming a sensible upper limit to avoid infinite loops
+        if not output_dir.exists():
+            break
+        output_dir = Path(f"{original_dir}_{i + 1}")
 
     if not output_dir.exists():
         output_dir.mkdir(parents=True, exist_ok=True)
 
-    labels = data["Labels"].copy()
+    systems = data[systems_column].copy()
+    cancer = data[cancer_column].copy()
     sample_id = data["improve_sample_id"].copy()
 
     # Remove the labels and sample_id columns
-    data = data.drop(columns=["Labels", "improve_sample_id"])
+    data = data.drop(columns=[systems_column, cancer_column, "improve_sample_id"])
 
     # Normalize the data
     scaler = MinMaxScaler(feature_range=(0, 1))
@@ -157,12 +172,14 @@ if __name__ == "__main__":
 
     # Save the reconstructed data
     reconstructed_data = pd.DataFrame(x_test_decoded)
-    reconstructed_data["Labels"] = labels
-    reconstructed_data["improve_sample_id"] = sample_id
-    reconstructed_data.to_csv(Path(output_dir, "reconstructed_data.tsv"), index=False)
+    reconstructed_data.insert(0, "improve_sample_id", sample_id)
+    reconstructed_data.insert(0, cancer_column, cancer)
+    reconstructed_data.insert(0, systems_column, systems)
+    reconstructed_data.to_csv(Path(output_dir, "reconstructed_data.tsv"), index=True)
 
     # Save the latent space
     latent_space = pd.DataFrame(x_test_encoded)
-    latent_space["Labels"] = labels
-    latent_space["improve_sample_id"] = sample_id
-    latent_space.to_csv(Path(output_dir, "latent_space.tsv"), index=False)
+    latent_space.insert(0, "improve_sample_id", sample_id)
+    latent_space.insert(0, cancer_column, cancer)
+    latent_space.insert(0, systems_column, systems)
+    latent_space.to_csv(Path(output_dir, "latent_space.tsv"), index=True)
