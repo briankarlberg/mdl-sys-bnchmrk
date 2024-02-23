@@ -1,3 +1,4 @@
+#!/bin/bash
 directory=$1
 output_directory=$2
 
