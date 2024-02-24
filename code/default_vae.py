@@ -175,11 +175,11 @@ if __name__ == "__main__":
     reconstructed_data.insert(0, "improve_sample_id", sample_id)
     reconstructed_data.insert(0, cancer_column, cancer)
     reconstructed_data.insert(0, systems_column, systems)
-    reconstructed_data.to_csv(Path(output_dir, "reconstructed_data.tsv"), index=True)
+    reconstructed_data.to_csv(Path(output_dir, f"{data_folder.stem}_reconstructed_data.tsv"), index=True)
 
     # Save the latent space
     latent_space = pd.DataFrame(x_test_encoded)
     latent_space.insert(0, "improve_sample_id", sample_id)
     latent_space.insert(0, cancer_column, cancer)
     latent_space.insert(0, systems_column, systems)
-    latent_space.to_csv(Path(output_dir, "latent_space.tsv"), index=True)
+    latent_space.to_csv(Path(output_dir, f"{data_folder.stem}_latent_space.tsv"), index=True)
