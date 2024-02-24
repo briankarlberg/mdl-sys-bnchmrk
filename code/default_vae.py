@@ -12,7 +12,7 @@ import argparse
 
 epochs = 50
 batch_size = 64
-z_dim = 1500
+z_dim = 50
 activation = tf.nn.relu
 systems_column = "System"
 cancer_column = "Cancer_type"
