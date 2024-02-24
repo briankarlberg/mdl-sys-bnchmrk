@@ -123,16 +123,18 @@ if __name__ == "__main__":
     data = pd.read_csv(args.data, sep="\t")
 
     output_dir = args.output_dir
-
-    original_dir = Path(output_dir, Path(data_folder).stem)
-    output_dir = original_dir
-    for i in range(10000):  # Assuming a sensible upper limit to avoid infinite loops
-        if not output_dir.exists():
-            break
-        output_dir = Path(f"{original_dir}_{i + 1}")
-
     if not output_dir.exists():
         output_dir.mkdir(parents=True, exist_ok=True)
+
+    original_output_dir = Path(output_dir, Path(data_folder).stem)
+    data_specific_output_dir = original_output_dir
+    for i in range(10000):  # Assuming a sensible upper limit to avoid infinite loops
+        if not data_specific_output_dir.exists():
+            break
+        data_specific_output_dir = Path(f"{data_specific_output_dir}_{i + 1}")
+
+    if not data_specific_output_dir.exists():
+        data_specific_output_dir.mkdir(parents=True, exist_ok=True)
 
     systems = data[systems_column].copy()
     cancer = data[cancer_column].copy()
@@ -175,11 +177,13 @@ if __name__ == "__main__":
     reconstructed_data.insert(0, "improve_sample_id", sample_id)
     reconstructed_data.insert(0, cancer_column, cancer)
     reconstructed_data.insert(0, systems_column, systems)
-    reconstructed_data.to_csv(Path(output_dir, f"{data_folder.stem}_reconstructed_data.tsv"), index=True)
+    reconstructed_data.to_csv(Path(data_specific_output_dir, f"{data_folder.stem}_reconstructed_data.tsv"), index=True)
 
     # Save the latent space
     latent_space = pd.DataFrame(x_test_encoded)
     latent_space.insert(0, "improve_sample_id", sample_id)
     latent_space.insert(0, cancer_column, cancer)
     latent_space.insert(0, systems_column, systems)
+    latent_space.to_csv(Path(data_specific_output_dir, f"{data_folder.stem}_latent_space.tsv"), index=True)
+
     latent_space.to_csv(Path(output_dir, f"{data_folder.stem}_latent_space.tsv"), index=True)
