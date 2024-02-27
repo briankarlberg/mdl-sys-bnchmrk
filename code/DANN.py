@@ -4,6 +4,8 @@ from tensorflow.keras.models import Model
 import pandas as pd
 from tensorflow.keras.layers import Layer
 from sklearn.preprocessing import MinMaxScaler, LabelEncoder
+from pathlib import Path
+from sklearn.model_selection import train_test_split
 
 systems_column = "System"
 cancer_column = "Cancer_type"
@@ -22,7 +24,7 @@ class GradientReversalLayer(Layer):
 
     def call(self, x, mask=None):
         """Performs the identity operation during the forward pass."""
-        return x
+        return self.grad_reverse(x)  # This line is changed to call grad_reverse
 
     @tf.custom_gradient
     def grad_reverse(self, x):
@@ -34,9 +36,6 @@ class GradientReversalLayer(Layer):
             return -self.alpha * dy
 
         return y, custom_grad
-
-    def compute_output_shape(self, input_shape):
-        return input_shape
 
 
 def create_feature_extractor(input_shape):
@@ -62,23 +61,41 @@ def create_systems_classifier(input_shape):
     return Model(inputs, system_output, name="systems_classifier")
 
 
-data = pd.read_csv('colon-adeno_transcriptomics_cell-line+CPTAC.tsv', sep='\t')
+file = Path('../output/colon-adeno_transcriptomics_cell-line+CPTAC.tsv')
+data = pd.read_csv(str(file), sep='\t')
 
-cancer_labels = data[[cancer_column]]
-systems_labels = data[[systems_column]]
+# split the data  into train and test
+train_data, test_data = train_test_split(data, test_size=0.2, random_state=42, shuffle=True,
+                                         stratify=data[[cancer_column, systems_column]])
 
-data = data.drop(columns=[cancer_column, systems_column, 'improve_sample_id'])
+train_cancer_labels = train_data[[cancer_column]]
+train_systems_labels = train_data[[systems_column]]
+train_sample_ids = train_data['improve_sample_id']
+
+test_cancer_labels = test_data[[cancer_column]]
+test_systems_labels = test_data[[systems_column]]
+test_sample_ids = test_data['improve_sample_id']
+
+train_data = train_data.drop(columns=[cancer_column, systems_column, 'improve_sample_id'])
+test_data = test_data.drop(columns=[cancer_column, systems_column, 'improve_sample_id'])
+scaled_data = data.drop(columns=[cancer_column, systems_column, 'improve_sample_id'])
 
 scaler = MinMaxScaler()
-scaled_data = scaler.fit_transform(data)
+scaled_train_data = scaler.fit_transform(train_data)
+scaled_test_data = scaler.transform(test_data)
+scaled_data = scaler.fit_transform(scaled_data)
 
 cancer_le = LabelEncoder()
-encoded_cancer_labels = cancer_le.fit_transform(cancer_labels)
+encoded_train_cancer_labels = cancer_le.fit_transform(train_cancer_labels)
+encoded_test_cancer_labels = cancer_le.transform(test_cancer_labels)
+encoded_cancer_labels = cancer_le.transform(data[cancer_column])
 
 systems_le = LabelEncoder()
-encoded_systems_labels = systems_le.fit_transform(systems_labels)
+encoded_train_systems_labels = systems_le.fit_transform(train_systems_labels)
+encoded_test_systems_labels = systems_le.transform(test_systems_labels)
+encoded_systems_labels = systems_le.transform(data[systems_column])
 
-input_shape = scaled_data.shape[1]
+input_shape = train_data.shape[1]
 
 # Assuming input data shape is (100,)
 feature_extractor = create_feature_extractor(input_shape=(input_shape,))
@@ -106,14 +123,31 @@ model.summary()
 systems_classifier.summary()
 cancer_classifier.summary()
 
-# model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
-
+# add early stopping callback
+early_stop = tf.keras.callbacks.EarlyStopping(monitor='systems_classifier_accuracy', patience=5)
 
 model.compile(optimizer='adam',
-              loss={'cancer_output': 'binary_crossentropy', 'systems_output': 'binary_crossentropy'},
-              metrics={'cancer_output': 'accuracy', 'systems_output': 'accuracy'},
-              loss_weights={'cancer_output': 1.0, 'systems_output': -1.0})
+              loss={'cancer_classifier': 'binary_crossentropy', 'systems_classifier': 'binary_crossentropy'},
+              metrics={'cancer_classifier': 'accuracy', 'systems_classifier': 'accuracy'},
+              loss_weights={'cancer_classifier': 1.0, 'systems_classifier': 10.0})
+
+history = model.fit(scaled_train_data,
+                    {'cancer_classifier': encoded_train_cancer_labels,
+                     'systems_classifier': encoded_train_systems_labels},
+                    epochs=100, callbacks=[early_stop], validation_split=0.2)
+
+domain_invariant_features = feature_extractor.predict(scaled_data)
+# create a feature invariant representation by using the feature extractor
+domain_invariant_features_df = pd.DataFrame(domain_invariant_features)
+domain_invariant_features_df.insert(0, cancer_column, encoded_cancer_labels)
+domain_invariant_features_df.insert(0, systems_column, encoded_systems_labels)
+domain_invariant_features_df.index = data['improve_sample_id']
+
+# insert the cancer and system labels
 
 
-history = model.fit(scaled_data, {'cancer_output': encoded_cancer_labels, 'systems_output': encoded_systems_labels},
-                    epochs=10)
+domain_invariant_features_df.to_csv(Path(f"{file.stem}_latent_space.tsv"), sep='\t', index=True)
+
+# save history
+history = pd.DataFrame(history.history)
+history.to_csv(Path(f"{file.stem}_history.tsv"), sep='\t', index=True)
