@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 from sklearn.preprocessing import MinMaxScaler
-from tensorflow.keras.layers import Input, Dense, Layer
+from tensorflow.keras.layers import Input, Dense, Layer, BatchNormalization, Activation
 from tensorflow.keras.models import Model
 from tensorflow.keras import metrics, losses, optimizers, regularizers
 from pathlib import Path
@@ -16,10 +16,14 @@ from sklearn.preprocessing import LabelEncoder
 import sys
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import f1_score, precision_score, recall_score
+# import random random forest classifier
+from sklearn.ensemble import RandomForestClassifier
+
+# import batch normalization
 
 epochs = 1
 batch_size = 64
-z_dim = 1500
+z_dim = 50
 activation = tf.nn.relu
 cancer_column = "Cancer_type"
 system_column = "System"
@@ -44,15 +48,27 @@ class Sampling(Layer):
 
 def create_encoder() -> Model:
     encoder_inputs = Input(shape=(data.shape[1],))
-    x = Dense(data.shape[1] // 2, activation=activation, kernel_initializer=kernel_initializer,
-              bias_initializer=bias_initializer)(
-        encoder_inputs)
-    x = Dense(data.shape[1] // 3, activation=activation, kernel_initializer=kernel_initializer,
-              bias_initializer=bias_initializer)(x)
-    x = Dense(data.shape[1] // 4, activation=activation, kernel_initializer=kernel_initializer,
-              bias_initializer=bias_initializer)(x)
-    x = Dense(data.shape[1] // 5, activation=activation, kernel_initializer=kernel_initializer,
-              bias_initializer=bias_initializer)(x)
+    # Assuming 'encoder_inputs' is defined, and 'activation', 'kernel_initializer', 'bias_initializer' are set
+    x = Dense(data.shape[1], kernel_initializer=kernel_initializer, bias_initializer=bias_initializer)(encoder_inputs)
+    x = BatchNormalization()(x)
+    x = Activation(activation)(x)
+
+    x = Dense(data.shape[1] // 2, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer)(x)
+    x = BatchNormalization()(x)
+    x = Activation(activation)(x)
+
+    x = Dense(data.shape[1] // 3, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer)(x)
+    x = BatchNormalization()(x)
+    x = Activation(activation)(x)
+
+    x = Dense(data.shape[1] // 4, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer)(x)
+    x = BatchNormalization()(x)
+    x = Activation(activation)(x)
+
+    x = Dense(data.shape[1] // 5, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer)(x)
+    x = BatchNormalization()(x)
+    x = Activation(activation)(x)
+
     x = Dense(z_dim, activation="relu")(x)
     z_mean = Dense(z_dim, name="z_mean")(x)
     z_log_var = Dense(z_dim, name="z_log_var")(x)
@@ -95,15 +111,6 @@ def build_cancer_classifier(latent_dim):
     return classifier
 
 
-def calculate_systems_entropy_penalty(systems_classifier_predictions, entropy_epsilon=1e-7):
-    systems_classifier_predictions = tf.clip_by_value(systems_classifier_predictions, entropy_epsilon,
-                                                      1 - entropy_epsilon)
-    entropy = -(systems_classifier_predictions * tf.math.log(systems_classifier_predictions) +
-                (1 - systems_classifier_predictions) * tf.math.log(1 - systems_classifier_predictions))
-    penalty = -tf.reduce_mean(entropy)  # We want to minimize this loss, hence negative entropy
-    return penalty
-
-
 def print_progress(current_step, total_steps, bar_length=40):
     """
     Prints a progress = indicating the training progress.
@@ -131,34 +138,22 @@ def print_verbose_output():
     tf.print(vae_loss)
 
 
-def adjust_loss_weights(cancer_accuracy, systems_accuracy):
-    global cancer_weight_multiplier, systems_weight_multiplier
+def calculate_systems_loss(y_true, y_pred):
+    # Ensure y_true is a float32 tensor for compatibility
+    y_true = tf.cast(y_true, tf.float32)
+    y_pred = tf.cast(y_pred, tf.float32)
 
-    # if cancer_accuracy >= target_cancer_accuracy:
-    #    # Prioritize systems loss to decrease systems accuracy
-    #    systems_weight_multiplier = 6.0  # increase weight
-    #    cancer_weight_multiplier = 2.0  # Decrease weight to maintain cancer accuracy
-    # elif systems_accuracy < target_systems_accuracy and cancer_accuracy < target_cancer_accuracy:
-    #    # Prioritize cancer loss to improve cancer accuracy
-    #    cancer_weight_multiplier = 4.0  # Example: increase weight
-    #    systems_weight_multiplier = 2.0  # Decrease weight to deprioritize systems accuracy
-    # else:
-    # Reset to default weights if none of the conditions are met
-    #    cancer_weight_multiplier = 2.0
-    #    systems_weight_multiplier = 2.0
+    # Flip the labels
+    y_true_inverted = 1 - y_true
+
+    # Calculate binary cross-entropy with flipped labels
+    return tf.keras.losses.binary_crossentropy(y_true_inverted, y_pred)
 
 
-def calculate_total_loss():
-    # systems_loss_penalty = -tf.math.log(systems_classifier_loss + epsilon)
-    # scaled_systems_loss_penalty = systems_weight_multiplier * systems_loss_penalty
-    scaled_cancer_loss = cancer_weight_multiplier * cancer_classifier_loss
-    systems_entropy = calculate_systems_entropy_penalty(systems_predictions)
-
-    # Apply softplus as systems loss penalty transformation
-    # Note: Adjusting the expression inside softplus based on your specific needs
-    scaled_systems_loss_penalty = tf.nn.softplus(systems_weight_multiplier * (1 / (systems_classifier_loss + epsilon)))
-
-    return vae_loss + scaled_cancer_loss + scaled_systems_loss_penalty + systems_entropy
+def calculate_cancer_loss(y_true, y_pred):
+    y_true = tf.cast(y_true, tf.float32)
+    y_pred = tf.cast(y_pred, tf.float32)
+    return tf.keras.losses.binary_crossentropy(y_true, y_pred)
 
 
 def save_model_weights(vae, systems_classifier, cancer_classifier, best_accuracy, cancer_accuracy_value,
@@ -216,11 +211,11 @@ if __name__ == "__main__":
                         help="The amount of epochs to train the model")
     parser.add_argument("--batch_size", "-b", action="store", type=int, default=64,
                         help="The batch size to use for training")
-    parser.add_argument("--latent_space", "-lts", action="store", type=int, default=1500,
+    parser.add_argument("--latent_space", "-lts", action="store", type=int, default=50,
                         help="The latent space dimension to use for the VAE")
     parser.add_argument("--cancer_multiplier", "-cm", action="store", type=float, default=2.0,
                         help="The multiplier to use for the cancer classifier loss")
-    parser.add_argument("--systems_multiplier", "-sm", action="store", type=float, default=2.5,
+    parser.add_argument("--systems_multiplier", "-sm", action="store", type=float, default=2.0,
                         help="The multiplier to use for the systems classifier loss")
     parser.add_argument("--only_metrics", "-om", action="store_true", help="Only calculate the metrics and save them"
                                                                            " to the output directory")
@@ -312,12 +307,7 @@ if __name__ == "__main__":
     # vae.compile(optimizer=optimizers.Adam())
 
     # Compile models
-    systems_classifier = build_systems_classifier(latent_dim=z_dim)
-    systems_classifier.compile(optimizer=optimizers.Adam(), loss=losses.binary_crossentropy,
-                               metrics=[metrics.binary_accuracy])
-    cancer_classifier = build_cancer_classifier(latent_dim=z_dim)
-    cancer_classifier.compile(optimizer=optimizers.Adam(), loss=losses.binary_crossentropy,
-                              metrics=[metrics.binary_accuracy])
+
     # vae.fit(scaled_data, epochs=epochs, batch_size=batch_size, callbacks=callbacks)
 
     train_dataset = tf.data.Dataset.from_tensor_slices(
@@ -327,9 +317,9 @@ if __name__ == "__main__":
     optimizer = keras.optimizers.Adam(learning_rate=0.001, clipvalue=0.00000001)
     total_loss_metric = tf.keras.metrics.Mean(name="total_loss")
     cancer_accuracy_metric = tf.keras.metrics.BinaryAccuracy(name='cancer_accuracy')
-    system_accuracy_metric = tf.keras.metrics.BinaryAccuracy(name='systema_accuracy')
+    system_accuracy_metric = tf.keras.metrics.BinaryAccuracy(name='systems_accuracy')
     cancer_loss_metric = tf.keras.metrics.Mean(name="cancer_loss")
-    systems_loss_metric = tf.keras.metrics.Mean(name="system_Loss")
+    systems_loss_metric = tf.keras.metrics.Mean(name="systems_loss")
     kl_loss_metric = tf.keras.metrics.Mean(name='kl_loss')
     vae_loss_metric = tf.keras.metrics.Mean(name='vae_loss')
     reconstruction_loss_metric = tf.keras.metrics.Mean(name='reconstruction_loss')
@@ -347,6 +337,8 @@ if __name__ == "__main__":
         system_accuracy_metric.reset_states()
         kl_loss_metric.reset_states()
         vae_loss_metric.reset_states()
+        cancer_loss_metric.reset_states()
+        systems_loss_metric.reset_states()
         reconstruction_loss_metric.reset_states()
 
         for step, (x_batch_train, systems_batch_train, cancers_batch_train) in enumerate(train_dataset):
@@ -358,32 +350,62 @@ if __name__ == "__main__":
                 reconstruction = vae.decoder(z)
                 reconstruction_loss = losses.mean_squared_error(x_batch_train, reconstruction)
                 kl_loss = -0.5 * tf.reduce_mean(z_log_var - tf.square(z_mean) - tf.exp(z_log_var) + 1)
+                kl_loss = 2000 * kl_loss
+                print(kl_loss)
                 vae_loss = reconstruction_loss + kl_loss
 
                 if verbose:
                     print_verbose_output()
 
+                systems_classifier = build_systems_classifier(latent_dim=z_dim)
+                systems_classifier.compile(optimizer=optimizers.Adam(), loss=losses.binary_crossentropy,
+                                           metrics=[metrics.binary_accuracy])
+                cancer_classifier = build_cancer_classifier(latent_dim=z_dim)
+                cancer_classifier.compile(optimizer=optimizers.Adam(), loss=losses.binary_crossentropy,
+                                          metrics=[metrics.binary_accuracy])
+
                 # Auxiliary classifier loss
-                systems_predictions = systems_classifier(z)
-                systems_predictions = tf.squeeze(systems_predictions, axis=-1)
+                # systems_predictions = systems_classifier(z)
+                # systems_predictions = tf.squeeze(systems_predictions, axis=-1)
 
-                cancer_predictions = cancer_classifier(z)
-                cancer_predictions = tf.squeeze(cancer_predictions, axis=-1)
+                systems_losses = []
+                for i in range(0, 9):
+                    X_train, X_test, y_train, y_test = train_test_split(z.numpy(), systems_batch_train.numpy(),
+                                                                        test_size=0.2)
+                    clf = RandomForestClassifier(max_depth=2, random_state=0)
+                    clf.fit(X_train, y_train)
+                    systems_predictions = clf.predict(X_test)
+                    # calculate accuracy
+                    system_accuracy_metric.update_state(y_test, systems_predictions)
+                    # calculate loss
+                    systems_losses.append(calculate_systems_loss(y_test, systems_predictions))
 
-                systems_classifier_loss = losses.binary_crossentropy(systems_batch_train, systems_predictions)
-                cancer_classifier_loss = losses.binary_crossentropy(cancers_batch_train, cancer_predictions)
+                cancer_losses = []
+                for i in range(0, 9):
+                    X_train, X_test, y_train, y_test = train_test_split(z.numpy(), cancers_batch_train.numpy(),
+                                                                        test_size=0.2)
+                    clf = RandomForestClassifier(max_depth=2, random_state=0)
+                    clf.fit(X_train, y_train)
+                    cancer_predictions = clf.predict(X_test)
+                    # calculate accuracy
+                    cancer_accuracy_metric.update_state(y_test, cancer_predictions)
+                    # calculate loss
+                    cancer_losses.append(calculate_cancer_loss(y_test, cancer_predictions))
 
-                cancer_loss_metric.update_state(cancer_classifier_loss)
+                # cancer_predictions = cancer_classifier(z)
+                # cancer_predictions = tf.squeeze(cancer_predictions, axis=-1)
+
+                systems_classifier_loss = systems_weight_multiplier * tf.reduce_mean(systems_losses)
+                cancer_classifier_loss = cancer_weight_multiplier * tf.reduce_mean(cancer_losses)
+
                 systems_loss_metric.update_state(systems_classifier_loss)
+                cancer_loss_metric.update_state(cancer_classifier_loss)
 
-                cancer_accuracy_metric.update_state(cancers_batch_train, cancer_predictions)
-                system_accuracy_metric.update_state(systems_batch_train, systems_predictions)
+                # cancer_accuracy_metric.update_state(cancers_batch_train, cancer_predictions)
+                # system_accuracy_metric.update_state(systems_batch_train, systems_predictions)
 
-                # Total loss. Might have to adjust the loss weights
-                # total_loss = vae_loss + (2 * cancer_classifier_loss) + 1 / (systems_classifier_loss + epsilon)
-
-                adjust_loss_weights(cancer_accuracy_metric.result(), system_accuracy_metric.result())
-                total_loss = calculate_total_loss()
+                # Update total loss
+                total_loss = vae_loss + cancer_classifier_loss + systems_classifier_loss
 
                 # Update the metrics
                 total_loss_metric.update_state(total_loss)
@@ -393,27 +415,26 @@ if __name__ == "__main__":
                 reconstruction_loss_metric.update_state(reconstruction_loss)
 
             grads = tape.gradient(total_loss,
-                                  vae.trainable_weights + cancer_classifier.trainable_weights + systems_classifier.trainable_weights)
-            optimizer.apply_gradients(zip(grads,
-                                          vae.trainable_weights + cancer_classifier.trainable_weights + systems_classifier.trainable_weights))
+                                  vae.trainable_weights)
+            optimizer.apply_gradients(zip(grads, vae.trainable_weights))
 
             print_progress(step, len(scaled_data) // batch_size)
 
         total_loss_value = total_loss_metric.result()
         cancer_accuracy_value = cancer_accuracy_metric.result()
-        systems_accuracy_value = system_accuracy_metric.result()
         kl_loss_value = kl_loss_metric.result()
         vae_loss_value = vae_loss_metric.result()
         reconstruction_loss_value = reconstruction_loss_metric.result()
         cancer_loss_value = cancer_loss_metric.result()
         systems_loss_value = systems_loss_metric.result()
+        systems_accuracy_value = system_accuracy_metric.result()
 
         print(
-            f"\nTotal Loss: {total_loss_value.numpy()} - Cancer Accuracy: {cancer_accuracy_value.numpy()} - Systems Accuracy:"
-            f" {systems_accuracy_value.numpy()} - KL Loss: {kl_loss_value.numpy()} - VAE Loss: {vae_loss_value.numpy()} -"
-            f" Reconstruction Loss: {reconstruction_loss_value.numpy()}")
+            f"\nTotal Loss: {total_loss_value.numpy()} - KL Loss: {kl_loss_value.numpy()} - VAE Loss: {vae_loss_value.numpy()} -"
+            f" Reconstruction Loss: {reconstruction_loss_value.numpy()} - Cancer Loss: {cancer_loss_value.numpy()} -"
+            f" Systems Loss: {systems_loss_value.numpy()}")
+        print(f"Cancer Accuracy: {cancer_accuracy_value.numpy()} - Systems Accuracy: {systems_accuracy_value.numpy()}")
 
-        # compare the accuracy of the cancer and systems classifier and save the weights only if the cancer accuracy value is up and the system accuracy value change only 10% compared to the saved value
         if epoch != 0:
             vae_weights, systems_classifier_weights, cancer_classifier_weights = save_model_weights(vae,
                                                                                                     systems_classifier,
@@ -447,7 +468,8 @@ if __name__ == "__main__":
     print("Training done.")
     # save training loss history
     training_losses = pd.DataFrame(training_losses)
-    training_losses["Run_Id"] = run_id
+    # df.insert(0, 'A', [9, 10, 11, 12])
+    training_losses.insert(0, "Run_Id", str(run_id))
     training_losses.to_csv(Path(output_dir, "training_losses.tsv"), index=False, sep='\t')
 
     # restore models to the best weights
@@ -467,17 +489,17 @@ if __name__ == "__main__":
 
     # Save the reconstructed data
     reconstructed_data = pd.DataFrame(x_test_decoded)
-    reconstructed_data[system_column] = system_labels.reset_index(drop=True)
-    reconstructed_data[cancer_column] = cancer_labels.reset_index(drop=True)
-    reconstructed_data["Run_Id"] = run_id
+    reconstructed_data.insert(0, "Run_Id", str(run_id))
+    reconstructed_data.insert(0, cancer_column, cancer_labels.reset_index(drop=True))
+    reconstructed_data.insert(0, system_column, system_labels.reset_index(drop=True))
     reconstructed_data.to_csv(Path(output_dir, "reconstructed_data.tsv"), index=False, sep='\t')
 
     # Save the latent space
     latent_space = pd.DataFrame(x_test_encoded)
-    latent_space[cancer_column] = cancer_labels.reset_index(drop=True)
-    latent_space[system_column] = system_labels.reset_index(drop=True)
-    latent_space["Run_Id"] = run_id
-    latent_space.to_csv(Path(output_dir, "latent_space.tsv"), index=False, sep='\t')
+    latent_space.insert(0, "Run_Id", str(run_id))
+    latent_space.insert(0, cancer_column, cancer_labels.reset_index(drop=True))
+    latent_space.insert(0, system_column, system_labels.reset_index(drop=True))
+    latent_space.to_csv(Path(output_dir, "latent_space.tsv"), index=True, sep='\t')
 
     # predict cancer and system labels
     cancer_predictions = cancer_classifier.predict(x_test_encoded)
