@@ -66,7 +66,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Train a DANN model')
     parser.add_argument('--data', "-d", type=Path, help='The data file')
-    parser.add_argument("--output_dir", "-o", type=Path, help="The output path")
+    parser.add_argument("--output_dir", "-o", type=Path, help="The output path", required=True)
     parser.add_argument("--latent_space", "-l", type=int, help="The latent space representation", default=64)
     args = parser.parse_args()
 
