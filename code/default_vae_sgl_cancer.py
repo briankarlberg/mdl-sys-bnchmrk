@@ -181,11 +181,11 @@ if __name__ == "__main__":
 
     vae = VAE(encoder, decoder)
     vae.compile(optimizer=tf.keras.optimizers.legacy.Adam(learning_rate=0.00001))
-    vae.fit(data_system_1, epochs=epochs, batch_size=batch_size, callbacks=callbacks)
+    history = vae.fit(data_system_1, epochs=epochs, batch_size=batch_size, callbacks=callbacks)
 
     data_combined = pd.concat([data_system_1, data_system_2])
-    data_combined_systems = pd.concat([data_systems_1_system, data_systems_2_system])
-    data_combined_cancer = pd.concat([data_system_1_cancer, data_system_2_cancer])
+    data_combined_systems = pd.Series(pd.concat([data_systems_1_system, data_systems_2_system]))
+    data_combined_cancer = pd.Series(pd.concat([data_system_1_cancer, data_system_2_cancer]))
     data_combined_sample_ids = pd.concat([data_system_1_sample_ids, data_system_2_sample_ids])
 
     # Correcting batch effects
@@ -195,8 +195,8 @@ if __name__ == "__main__":
     # Save the reconstructed data
     reconstructed_data = pd.DataFrame(x_test_decoded)
 
-    reconstructed_data.insert(0, cancer_column, data_combined_cancer[0])
-    reconstructed_data.insert(0, systems_column, data_combined_systems[0])
+    reconstructed_data.insert(0, cancer_column, data_combined_cancer)
+    reconstructed_data.insert(0, systems_column, data_combined_systems)
     # set sample id as index of the dataframe
     reconstructed_data.index = data_combined_sample_ids
     reconstructed_data.to_csv(Path(data_specific_output_dir, f"{data_folder.stem}.reconstructed_data.tsv"), sep='\t',
@@ -204,8 +204,8 @@ if __name__ == "__main__":
 
     # Save the latent space
     latent_space = pd.DataFrame(x_test_encoded)
-    latent_space.insert(0, cancer_column, data_combined_cancer[0])
-    latent_space.insert(0, systems_column, data_combined_systems[0])
+    latent_space.insert(0, cancer_column, data_combined_cancer)
+    latent_space.insert(0, systems_column, data_combined_systems)
     latent_space.index = data_combined_sample_ids
     latent_space.to_csv(Path(data_specific_output_dir, f"{data_folder.stem}.latent_space.tsv"), sep='\t', index=True)
 
@@ -215,3 +215,7 @@ if __name__ == "__main__":
     reconstruction_loss = losses.mean_squared_error(data_combined, x_test_decoded)
     reconstruction_loss = K.mean(reconstruction_loss)
     print(f"Reconstruction loss: {reconstruction_loss}")
+
+    # Save the loss history
+    loss_history = pd.DataFrame(history.history)
+    loss_history.to_csv(Path(data_specific_output_dir, f"{data_folder.stem}.loss_history.tsv"), sep='\t', index=True)
