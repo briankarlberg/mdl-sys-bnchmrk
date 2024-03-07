@@ -8,6 +8,7 @@ from sklearn.metrics import f1_score
 
 systems_column = "System"
 cancer_column = "Cancer_type"
+improve_sample_id_column = "improve_sample_id"
 output_path = Path("..", "results", "r7", "transfer", "vae")
 
 if __name__ == '__main__':
@@ -23,7 +24,7 @@ if __name__ == '__main__':
 
     dfs = []
     for file in data_files:
-        dfs.append(pd.read_csv(file, sep="\t"))
+        dfs.append(pd.read_csv(file, sep="\t", index_col=0))
 
     loaded_data = pd.concat(dfs)
 
@@ -52,7 +53,6 @@ if __name__ == '__main__':
     data_systems_1_system = data_system_1[systems_column]
     data_systems_2_system = data_system_2[systems_column]
 
-    # Remove the labels and sample_id columns
     data_system_1 = data_system_1.drop(columns=[systems_column, cancer_column, "improve_sample_id"])
     data_system_2 = data_system_2.drop(columns=[systems_column, cancer_column, "improve_sample_id"])
 
