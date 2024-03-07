@@ -47,14 +47,14 @@ if __name__ == '__main__':
     data_system_1_cancer_enc = le.fit_transform(data_system_1_cancer)
     data_system_2_cancer_enc = le.transform(data_system_2_cancer)
 
-    data_system_1_sample_ids = data_system_1["improve_sample_id"]
-    data_system_2_sample_ids = data_system_2["improve_sample_id"]
+    data_system_1_sample_ids = data_system_1.index
+    data_system_2_sample_ids = data_system_2.index
 
     data_systems_1_system = data_system_1[systems_column]
     data_systems_2_system = data_system_2[systems_column]
 
-    data_system_1 = data_system_1.drop(columns=[systems_column, cancer_column, "improve_sample_id"])
-    data_system_2 = data_system_2.drop(columns=[systems_column, cancer_column, "improve_sample_id"])
+    data_system_1 = data_system_1.drop(columns=[systems_column, cancer_column])
+    data_system_2 = data_system_2.drop(columns=[systems_column, cancer_column])
 
     # scale the data using min max scaler
     scaler = MinMaxScaler(feature_range=(0, 1))
