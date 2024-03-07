@@ -87,6 +87,7 @@ if __name__ == '__main__':
 
     # create f1 score
     predictions = model.predict(data_system_2)
+    predictions = (predictions > 0.5).astype(int)
     f1 = f1_score(data_system_2_cancer_enc, predictions)
 
     print(f"F1 score: {f1}")
