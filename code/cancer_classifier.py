@@ -62,7 +62,7 @@ if __name__ == '__main__':
 
     # create an input layer
     input_layer = Input(shape=(input_dim,))
-    x = Dense(input_dim=input_dim // 2, activation='relu')(input_layer)
+    x = Dense(units=input_dim // 2, activation='relu')(input_layer)
     # create output
     output_layer = Dense(1, activation='sigmoid')(x)
 
