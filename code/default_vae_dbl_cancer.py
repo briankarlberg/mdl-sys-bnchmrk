@@ -1,12 +1,12 @@
 import pandas as pd
 import tensorflow as tf
-from tensorflow.keras.layers import Input, Dense, Layer, BatchNormalization
+from tensorflow.keras.layers import Input, Dense, Layer, BatchNormalization, Concatenate
 from tensorflow.keras.models import Model
 from tensorflow.keras import metrics, losses
 from pathlib import Path
 from tensorflow.keras import backend as K
 from tensorflow.keras.callbacks import EarlyStopping
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, LabelEncoder
 import argparse
 
 epochs = 50
@@ -28,25 +28,29 @@ class Sampling(Layer):
         return z_mean + tf.exp(0.5 * z_log_var) * epsilon
 
 
-def create_encoder(input_dim) -> Model:
+def create_encoder(input_dim: int, num_classes: int) -> Model:
     encoder_inputs = Input(shape=(input_dim,))
+    labels = Input(shape=(num_classes,))
     # add normalization layer
     # x = Normalization(axis=-1)(encoder_inputs)
-    x = Dense(input_dim // 2, activation=activation)(encoder_inputs)
+    x = Concatenate()([encoder_inputs, labels])
+    x = Dense(input_dim // 2, activation=activation)(x)
     x = BatchNormalization()(x)
     x = Dense(z_dim, activation=activation)(x)
     z_mean = Dense(z_dim, name="z_mean")(x)
     z_log_var = Dense(z_dim, name="z_log_var")(x)
     z = Sampling()([z_mean, z_log_var])
-    return Model(encoder_inputs, [z_mean, z_log_var, z], name="encoder")
+    return Model([encoder_inputs, labels], [z_mean, z_log_var, z], name="encoder")
 
 
-def create_decoder(input_dim) -> Model:
+def create_decoder(input_dim, num_classes) -> Model:
     decoder_input = Input(shape=(z_dim,))
-    x = Dense(z_dim, activation=activation)(decoder_input)
-    x = Dense(input_dim // 2, activation=activation)(x)
+    labels = Input(shape=(num_classes,))
+    x = Concatenate()([decoder_input, labels])
+    x = Dense(z_dim, activation=activation, name='encoder_dense_1')(x)
+    x = Dense(input_dim // 2, activation=activation, name='encoder_dense_2')(x)
     decoder_outputs = Dense(input_dim, activation='sigmoid')(x)
-    return Model(decoder_input, decoder_outputs, name="decoder")
+    return Model([decoder_input, labels], decoder_outputs, name="decoder")
 
 
 class VAE(Model):
@@ -69,10 +73,11 @@ class VAE(Model):
         ]
 
     def train_step(self, data):
+        (features, labels), = data
         with tf.GradientTape() as tape:
-            z_mean, z_log_var, z = self.encoder(data)
-            reconstruction = self.decoder(z)
-            reconstruction_loss = losses.mean_squared_error(data, reconstruction)
+            z_mean, z_log_var, z = self.encoder([features, labels])
+            reconstruction = self.decoder([z, labels])
+            reconstruction_loss = losses.mean_squared_error(features, reconstruction)
             kl_loss = - 0.5 * tf.reduce_sum(1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var), axis=-1)
             total_loss = reconstruction_loss + kl_weight * kl_loss
 
@@ -144,6 +149,9 @@ if __name__ == "__main__":
     if not data_specific_output_dir.exists():
         data_specific_output_dir.mkdir(parents=True, exist_ok=True)
 
+    unique_systems = loaded_data[systems_column].unique()
+    unique_cancers = loaded_data[cancer_column].unique()
+
     print("Detecting systems...")
     system_1 = loaded_data[systems_column].unique()[0]
     system_2 = loaded_data[systems_column].unique()[1]
@@ -158,11 +166,21 @@ if __name__ == "__main__":
     data_system_1_cancer = data_system_1[cancer_column]
     data_system_2_cancer = data_system_2[cancer_column]
 
+    # label encode the cancer types use sklearn label encoder
+    le = LabelEncoder()
+    data_system_1_cancer_enc = pd.Series(le.fit_transform(data_system_1_cancer))
+    data_system_2_cancer_enc = pd.Series(le.fit_transform(data_system_2_cancer))
+
     data_system_1_sample_ids = data_system_1["improve_sample_id"]
     data_system_2_sample_ids = data_system_2["improve_sample_id"]
 
     data_systems_1_system = data_system_1[systems_column]
     data_systems_2_system = data_system_2[systems_column]
+
+    # label encode the systems
+    le = LabelEncoder()
+    data_systems_1_system_enc = pd.Series(le.fit_transform(data_systems_1_system))
+    data_systems_2_system_enc = pd.Series(le.fit_transform(data_systems_2_system))
 
     # Remove the labels and sample_id columns
     data_system_1 = data_system_1.drop(columns=[systems_column, cancer_column, "improve_sample_id"])
@@ -175,9 +193,9 @@ if __name__ == "__main__":
 
     input_dim = data_system_1.shape[1]
 
-    encoder = create_encoder(input_dim=input_dim)
+    encoder = create_encoder(input_dim=input_dim, num_classes=1)
     encoder.summary()
-    decoder = create_decoder(input_dim=input_dim)
+    decoder = create_decoder(input_dim=input_dim, num_classes=1)
     decoder.summary()
 
     # add the kl weight scheduler
@@ -193,16 +211,19 @@ if __name__ == "__main__":
 
     vae = VAE(encoder, decoder)
     vae.compile(optimizer=tf.keras.optimizers.legacy.Adam(learning_rate=0.00001))
-    history = vae.fit(data_system_1, epochs=epochs, batch_size=batch_size, callbacks=callbacks)
+    history = vae.fit([data_system_1, data_system_1_cancer_enc], epochs=epochs, batch_size=batch_size,
+                      callbacks=callbacks)
 
     data_combined = pd.concat([data_system_1, data_system_2])
     data_combined_systems = pd.Series(pd.concat([data_systems_1_system, data_systems_2_system]))
+    data_combined_systems_enc = pd.Series(pd.concat([data_systems_1_system_enc, data_systems_2_system_enc]))
+    data_combined_cancer_enc = pd.Series(pd.concat([data_system_1_cancer_enc, data_system_2_cancer_enc]))
     data_combined_cancer = pd.Series(pd.concat([data_system_1_cancer, data_system_2_cancer]))
     data_combined_sample_ids = pd.concat([data_system_1_sample_ids, data_system_2_sample_ids])
 
     # Correcting batch effects
-    _, _, x_test_encoded = vae.encoder.predict(data_combined)
-    x_test_decoded = vae.decoder.predict(x_test_encoded)
+    _, _, x_test_encoded = vae.encoder.predict([data_combined, data_combined_cancer_enc])
+    x_test_decoded = vae.decoder.predict([x_test_encoded, data_combined_cancer_enc])
 
     # Save the reconstructed data
     reconstructed_data = pd.DataFrame(x_test_decoded)
