@@ -14,10 +14,13 @@ output_path = Path("..", "results", "r7", "transfer", "vae")
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Create cell community spots.')
     parser.add_argument('--data', "-d", required=True, help='Path to the data folder', nargs='+')
+    parser.add_argument('--scale', "-s", required=False, help='Path to the output folder', action='storetrue',
+                        default=True)
 
     args = parser.parse_args()
 
     data_files = args.data
+    scale = args.scale
 
     if not output_path.exists():
         output_path.mkdir(parents=True, exist_ok=True)
@@ -56,10 +59,12 @@ if __name__ == '__main__':
     data_system_1 = data_system_1.drop(columns=[systems_column, cancer_column])
     data_system_2 = data_system_2.drop(columns=[systems_column, cancer_column])
 
-    # scale the data using min max scaler
-    scaler = MinMaxScaler(feature_range=(0, 1))
-    data_system_1 = pd.DataFrame(scaler.fit_transform(data_system_1))
-    data_system_2 = pd.DataFrame(scaler.fit_transform(data_system_2))
+    if scale:
+        print("Scaling data...")
+        # scale the data using min max scaler
+        scaler = MinMaxScaler(feature_range=(0, 1))
+        data_system_1 = pd.DataFrame(scaler.fit_transform(data_system_1))
+        data_system_2 = pd.DataFrame(scaler.fit_transform(data_system_2))
 
     # create a DNN classifier
     input_dim = data_system_1.shape[1]
