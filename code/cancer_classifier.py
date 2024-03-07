@@ -1,7 +1,7 @@
 import argparse, os
 import pandas as pd
 from pathlib import Path
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, LabelEncoder
 import tensorflow as tf
 from tensorflow.keras.layers import Input, Dense, Layer
 from sklearn.metrics import f1_score
@@ -42,6 +42,10 @@ if __name__ == '__main__':
     data_system_1_cancer = data_system_1[cancer_column]
     data_system_2_cancer = data_system_2[cancer_column]
 
+    le = LabelEncoder()
+    data_system_1_cancer_enc = le.fit_transform(data_system_1_cancer)
+    data_system_2_cancer_enc = le.transform(data_system_2_cancer)
+
     data_system_1_sample_ids = data_system_1["improve_sample_id"]
     data_system_2_sample_ids = data_system_2["improve_sample_id"]
 
@@ -74,16 +78,16 @@ if __name__ == '__main__':
     early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=5)
 
     # train the model
-    model.fit(data_system_1, data_system_1_cancer, epochs=50, batch_size=32, validation_split=0.2,
+    model.fit(data_system_1, data_system_1_cancer_enc, epochs=50, batch_size=32, validation_split=0.2,
               callbacks=[early_stop])
 
     # evaluate the model
-    model.evaluate(data_system_2, data_system_2_cancer)
+    model.evaluate(data_system_2, data_system_2_cancer_enc)
     print("Model evaluation complete.")
 
     # create f1 score
     predictions = model.predict(data_system_2)
-    f1 = f1_score(data_system_2_cancer, predictions)
+    f1 = f1_score(data_system_2_cancer_enc, predictions)
 
     print(f"F1 score: {f1}")
 
