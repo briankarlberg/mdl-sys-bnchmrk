@@ -14,13 +14,14 @@ output_path = Path("..", "results", "r7", "transfer", "vae")
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Create cell community spots.')
     parser.add_argument('--data', "-d", required=True, help='Path to the data folder', nargs='+')
-    parser.add_argument('--scale', "-s", required=False, help='Path to the output folder', action='storetrue',
-                        default=True)
+    parser.add_argument('--scale', "-s", required=False, help='Path to the output folder', action='store_true',
+                        default=False)
 
     args = parser.parse_args()
 
     data_files = args.data
     scale = args.scale
+
 
     if not output_path.exists():
         output_path.mkdir(parents=True, exist_ok=True)
