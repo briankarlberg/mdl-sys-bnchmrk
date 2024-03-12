@@ -1,5 +1,8 @@
 readme, code dir
 
+2024-03-12
+List of dicts to store as rows
+
 from sklearn.svm import LinearSVC
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
