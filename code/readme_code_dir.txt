@@ -1,5 +1,23 @@
 readme, code dir
 
+2024-03-13
+clssfr.ipynb and dstnc.ipynb to archive
+    using synched cross validation in transfer_ipynb now
+    and mmd.ipynb now for distance
+
+rf.ipynb to archive
+    this has the biomrk vars conversion
+    and the itertools pairwise woven cross fold random forest
+
+job_scheduler.sh to archive
+    Exacloud bash loop
+
+12 notebooks remain, 2 groups
+
+torch.ipynb to archive
+
+11 notebooks remain, deal with umaps next
+
 2024-03-12
 List of dicts to store as rows
 
@@ -15,7 +33,7 @@ Tybalt in start of dstnc.ipynb
 
 # Front-end crossfolds
 # RFE <- transfer learning
-# Cellinger
+# Cellinger <- dependency issues, output left printe
 
 # SVM
-    - fifth option (?) SGD?
+    - fifth option (?) SGD? <-- address this
