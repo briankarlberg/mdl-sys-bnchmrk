@@ -177,8 +177,11 @@ if __name__ == '__main__':
                         help="The output dir where the results should be stored. If it does not exist, it will be created.")
     args = parser.parse_args()
 
-    file_name = Path(args.data).stem
+    file_name = "_".join(Path(args.data).stem.split('_')[:-1])
+    system_1_name = Path(args.data).stem.split('+')[0].split('_')[-1]
+    system_2_name = Path(args.data).stem.split('+')[-1]
     loaded_data = pd.read_csv(args.data, sep="\t", index_col=0)
+
     loaded_data.reset_index(drop=True, inplace=True)
 
     output_dir = Path(args.output_dir, file_name)
@@ -297,8 +300,9 @@ if __name__ == '__main__':
     z_df.index = combined_sample_ids.values
 
     # create latent space file name
-    latent_space_file_name = f"{file_name}_{systems[0]}+{systems[1]}.{latent_space_dim}-ltnt-dim_{epochs}-epchs.tsv"
-
+    file_name = f"{file_name}_{system_1_name}+{system_2_name}.disc_{latent_space_dim}-ltnt-dim_{epochs}-epchs"
+    latent_space_file_name = f"{file_name}.tsv"
+    print(f"Saving latent space using file name: {latent_space_file_name}")
     z_df.to_csv(Path(output_dir, latent_space_file_name), index=True, sep="\t")
 
     # plot the training history
@@ -316,7 +320,9 @@ if __name__ == '__main__':
     # log the y axis
     plt.yscale('log')
 
-    plt.legend(['total_loss', 'vae_loss', 'reconstruction_loss', 'kl_loss', 'classification_loss', 'discriminator_loss'],
-                loc='upper right')
+    plt.legend(
+        ['total_loss', 'vae_loss', 'reconstruction_loss', 'kl_loss', 'classification_loss', 'discriminator_loss'],
+        loc='upper right')
     # save fig
-    plt.savefig(Path(output_dir, f"{file_name}_loss_history.png"), dpi=300)
+    image_file_name = f"{file_name}_loss_history.png"
+    plt.savefig(Path(output_dir, image_file_name), dpi=300)
