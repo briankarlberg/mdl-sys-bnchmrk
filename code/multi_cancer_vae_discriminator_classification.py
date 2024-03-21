@@ -182,8 +182,6 @@ if __name__ == '__main__':
     system_2_name = Path(args.data).stem.split('+')[-1]
     loaded_data = pd.read_csv(args.data, sep="\t", index_col=0)
 
-    loaded_data.reset_index(drop=True, inplace=True)
-
     output_dir = Path(args.output_dir, file_name)
     if not output_dir.exists():
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -297,6 +295,7 @@ if __name__ == '__main__':
     # save latent space
     z_df.insert(0, cancer_column, combined_cancers.values)
     z_df.insert(0, systems_column, combined_systems.values)
+
     z_df.index = combined_sample_ids.values
 
     # create latent space file name

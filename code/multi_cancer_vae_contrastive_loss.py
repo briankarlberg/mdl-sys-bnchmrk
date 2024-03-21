@@ -204,7 +204,6 @@ if __name__ == '__main__':
     system_1_name = Path(args.data).stem.split('+')[0].split('_')[-1]
     system_2_name = Path(args.data).stem.split('+')[-1]
     loaded_data = pd.read_csv(args.data, sep="\t", index_col=0)
-    loaded_data.reset_index(drop=True, inplace=True)
 
     output_dir = Path(args.output_dir, file_name)
     if not output_dir.exists():
